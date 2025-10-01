@@ -1,0 +1,11 @@
+NOTES.md
+/server/__pycache__
+/server/Lib
+/server/Scripts
+/server/Include
+/server/GeoData
+/server/data
+/server/pyvenv.cfg
+/server/src/__pycache__
+/client/package-lock.json
+/save
