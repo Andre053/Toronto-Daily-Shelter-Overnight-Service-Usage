@@ -14,6 +14,21 @@ export type ServerData = {
   data: any;
 }
 
+export type ServiceUserDataAll = {
+  [key: string]: ServiceUserDataByFsa[];
+}
+
+type ServiceUserDataByFsa = {
+  total_sum: number;
+  total_mean: number;
+  daily_stats: ServiceUserDailyStats[];
+}
+type ServiceUserDailyStats = {
+  date: string;
+  service_user_sum: number;
+  service_user_mean: number
+}
+
 export type FsaData = {
     fsa: fsaCounts[];
     stats: FsaStats;

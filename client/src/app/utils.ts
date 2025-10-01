@@ -2,7 +2,6 @@ import { ServerData } from "@/types/Data";
 
 // used to make initial API calls for components
 export async function fetchDataBeforeLoad(url: string): Promise<ServerData> {
-  console.log("Requesting data from local API")
   try {
     const res = await fetch(url);
     const data = await res.json();

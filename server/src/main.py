@@ -4,9 +4,13 @@ python -m venv <path>
 - pip install "uvicorn[standard]"
 fastapi dev main.py
 
+Dates are YYYY-MM-DD
 
-NOTES
-- Do not need to json.dumps() the response
+TODO
+- Implement query parameters with dates
+- Fix daily updating using globals file
+- Divide code into multiple files
+- Implement APIRouter groupings
 
 """
 
@@ -85,17 +89,12 @@ def download_all_data_csv():
         if resource['datastore_active']:
             # get all records in CSV
             url = BASE_URL + '/datastore/dump/' + resource['id']
-            #data = req.get(url).text
-            print("Downloading active datastore data of resource:", resource['id'])
 
             filename = os.path.join(dir, f"../data/data_{resource['id']}.csv")
-            print("Using filename:", filename)
-            print("Using URL:", url)
             urlretrieve(url=url, filename=filename)
         if not resource['datastore_active']:
             url = BASE_URL + '/api/3/action/resource_show?id=' + resource['id']
             resource_metadata = req.get(url).json()
-            print('Found resource metadata')
 
 # parameters are documented: https://docs.ckan.org/en/latest/maintaining/datastore.html
 # TODO: Implement with a API endpoint
@@ -121,32 +120,67 @@ def get_geojson_data(geotype):
     else: return {}
 
     with open(path, 'r') as f:
-        data = json.load(f)
-
-        return data
+        return json.load(f)
 
 def prep_data(df):
     df['LOCATION_FSA_CODE'] = df['LOCATION_POSTAL_CODE'].apply(lambda x: x[:3] if pd.notnull(x) else "N/A")
     return df
 
-def load_dataframe(file):
-    df = pd.read_csv(file)
-
-    df = df[['OCCUPANCY_DATE', 'ORGANIZATION_NAME', 'SHELTER_ID', 'SHELTER_GROUP', 'LOCATION_NAME', 'LOCATION_ADDRESS', 'LOCATION_POSTAL_CODE', 'LOCATION_CITY', 'PROGRAM_ID', 'PROGRAM_NAME', 'PROGRAM_MODEL', 'SECTOR', 'OVERNIGHT_SERVICE_TYPE', 'SERVICE_USER_COUNT', 'CAPACITY_ACTUAL_BED', 'CAPACITY_FUNDING_BED', 'OCCUPIED_BEDS', 'UNOCCUPIED_BEDS', 'UNAVAILABLE_BEDS', 'OCCUPIED_ROOMS', 'UNOCCUPIED_ROOMS']]
-    df = prep_data(df)
-
-    return df
+def load_dataframe():
+    return pd.read_csv(DATA_PATH)
 
 # TODO: Add more data to send
 # Used when a FSA is selected on the map
 def get_area_data(area, area_type):
-    df = load_dataframe(DATA_PATH)
+    df = get_data(None)
 
     if area_type == 'fsa':
         df = df[df['LOCATION_FSA_CODE'] == area]
     if area_type == 'nb':
         df = df[df['PROGRAM_AREA'] == area]
 
+    return analyze_area_data(df, area)
+
+# filter dataframe based on list of columns
+def get_data(col_filter):
+    df = load_dataframe()
+
+    df = df[['OCCUPANCY_DATE', 'ORGANIZATION_NAME', 'SHELTER_ID', 'SHELTER_GROUP', 'LOCATION_NAME', 'LOCATION_ADDRESS', 'LOCATION_POSTAL_CODE', 'LOCATION_CITY', 'PROGRAM_ID', 'PROGRAM_NAME', 'PROGRAM_MODEL', 'SECTOR', 'OVERNIGHT_SERVICE_TYPE', 'SERVICE_USER_COUNT', 'CAPACITY_ACTUAL_BED', 'CAPACITY_FUNDING_BED', 'OCCUPIED_BEDS', 'UNOCCUPIED_BEDS', 'UNAVAILABLE_BEDS', 'OCCUPIED_ROOMS', 'UNOCCUPIED_ROOMS']]
+    df = prep_data(df)
+
+    if col_filter: return df[col_filter]
+    return df
+
+def get_map_filter_cols(filter):
+    if filter == 'serviceUsers': # average daily service user count TODO: Rename
+        return ['OCCUPANCY_DATE', 'LOCATION_FSA_CODE', 'SERVICE_USER_COUNT']
+    elif filter == 'option2': # average daily occupied beds TODO: Rename
+        return ['OCCUPANCY_DATE', 'LOCATION_FSA_CODE', 'OCCUPIED_BEDS']
+    elif filter == 'option3': # average daily occupied rooms TODO: Rename
+        return ['OCCUPANCY_DATE', 'LOCATION_FSA_CODE', 'OCCUPIED_ROOMS']
+    elif filter == 'programCount': # unique program counts active in the timeline 
+        return ['LOCATION_FSA_CODE', 'PROGRAM_NAME']
+    elif filter == 'shelterCount': # shelter counts
+        return ['OCCUPANCY_DATE' 'LOCATION_FSA_CODE', 'SHELTER_ID']
+    else: 
+        return []
+
+# TODO: No longer will be used, think of new approach for heat map data
+def analyze_fsa(df):
+    val_counts = df['LOCATION_FSA_CODE'].value_counts()
+    max_count = int(val_counts.max())
+
+    vc_json = [{'key': str(idx), 'val': int(count)} for idx, count in val_counts.items()]
+
+    payload = {
+        "fsa": vc_json,
+        "stats": {
+            "max": max_count,
+        }
+    }
+    return payload
+
+def analyze_area_data(df, area):
     active_programs = df['PROGRAM_NAME'].unique().tolist()
     service_types = df['OVERNIGHT_SERVICE_TYPE'].unique().tolist()
     active_organizations = df['ORGANIZATION_NAME'].unique().tolist()
@@ -167,26 +201,48 @@ def get_area_data(area, area_type):
     }
     return payload
 
-# filter dataframe based on list of columns
-def get_data(col_filter):
-    df = load_dataframe(DATA_PATH)[col_filter]
+def analyze_daily_service_user_count(df):
+    # for each fsa_code, get all dates, sum the user_count values on each date
+    data = {}
 
-    return df
-
-# TODO: No longer will be used, think of new approach for heat map data
-def analyze_fsa(df):
-    val_counts = df['LOCATION_FSA_CODE'].value_counts()
-    max_count = int(val_counts.max())
-
-    vc_json = [{'key': str(idx), 'val': int(count)} for idx, count in val_counts.items()]
-
-    payload = {
-        "fsa": vc_json,
-        "stats": {
-            "max": max_count,
+    # group-by changed it form the regular DF
+    # TODO: Is there a faster solution? 
+    for fsa in df['LOCATION_FSA_CODE'].unique(): 
+        df_by_fsa = df[df['LOCATION_FSA_CODE'] == fsa] # breaking here
+        data[fsa] = {
+            'total_sum': 0,
+            'total_mean': 0,
+            'daily_stats': []
         }
-    }
-    return payload
+        total_sum = 0
+        total_mean = 0
+        for date in df_by_fsa['OCCUPANCY_DATE'].unique():
+            df_for_data = df_by_fsa[df_by_fsa['OCCUPANCY_DATE'] == date]
+            daily_user_count_sum = int(df_for_data['SERVICE_USER_COUNT'].sum()) # int64 not serializable, cast to int()
+            daily_user_count_mean = round(df_for_data['SERVICE_USER_COUNT'].mean(), 2)
+            total_sum += daily_user_count_sum
+            if daily_user_count_sum > 0: total_mean += 1 # keep track of days with counts
+
+            data[fsa]['daily_stats'].append({'DATE': date, 'SERVICE_USER_SUM': daily_user_count_sum, 'SERVICE_USER_MEAN': daily_user_count_mean})
+        data[fsa]['total_sum'] = total_sum 
+        data[fsa]['total_mean'] = round(total_sum/total_mean, 2)
+    print(f'[analyze_daily_service_user_count] data creation completed with length {len(data)}')
+
+    return data
+
+def analyze_filter_type(df, filter):
+    if filter == 'serviceUsers': # average daily service user count TODO: Rename
+        return analyze_daily_service_user_count(df)
+    elif filter == 'option2': # average daily occupied beds TODO: Rename
+        return analyze_daily_service_user_count(df)
+    elif filter == 'option3': # average daily occupied rooms TODO: Rename
+        return analyze_daily_service_user_count(df)
+    elif filter == 'programCount': # unique program counts active in the timeline 
+        return analyze_daily_service_user_count(df)
+    elif filter == 'shelterCount': # shelter counts
+        return analyze_daily_service_user_count(df)
+    else: 
+        return []
 
 @app.get("/")
 async def root():
@@ -198,7 +254,8 @@ async def root():
     return payload
 
 @app.get("/geodata/{geotype}")
-async def get_geo_data(geotype: str):
+async def get_geo_data(geotype: str, end: str = '2025-09-01', start: str = '2025-01-01'):
+    print(f'[get_geo_data] Received geotype {geotype}, end time {end}, start time {start}')
     geojson = get_geojson_data(geotype)
     payload = {
         'message': 'GeoJson data retrieved',
@@ -207,23 +264,25 @@ async def get_geo_data(geotype: str):
     return payload
 
 #TODO: Add URL parameters to customize the request being made to the backend
-@app.get("/mapdata") 
-async def get_map_data():
-    data_cols = ['OCCUPANCY_DATE', 'ORGANIZATION_NAME', 'SHELTER_ID', 'SHELTER_GROUP', 'LOCATION_NAME', 'LOCATION_ADDRESS', 'LOCATION_POSTAL_CODE', 'LOCATION_CITY', 'PROGRAM_ID', 'PROGRAM_NAME', 'PROGRAM_MODEL', 'SECTOR', 'OVERNIGHT_SERVICE_TYPE']
-    filter_data_cols = ['LOCATION_FSA_CODE']
-    filtered_data = get_data(filter_data_cols)
+@app.get("/data/complete/{filter_type}") 
+async def get_map_data(filter_type: str, end: str = '2025-09-01', start: str = '2025-01-01'):
+    print(f'[get_map_data] Received filter {filter_type}, end time {end}, start time {start}')
+
+    cols = get_map_filter_cols(filter_type)
+    if len(cols) == 0: return {'message': f'Invalid filter type "{filter_type}" provided', 'data': {}}
+
+    filtered_data = get_data(cols)
     
-    data_json = analyze_fsa(filtered_data)
+    data_json = analyze_filter_type(filtered_data, filter_type)
 
     payload = {
-        'message': 'Data requested.',
+        'message': f'Data retrieved for map filter {filter_type}',
         'data': data_json,
     }
     return payload
 
 @app.get("/data/fsa/{fsa_code}")
-async def data_by_fsa(fsa_code: str):
-
+async def data_by_fsa(fsa_code: str, end: str = '2025-09-01', start: str = '2025-01-01'):
     data = get_area_data(fsa_code, 'fsa')
 
     payload = {

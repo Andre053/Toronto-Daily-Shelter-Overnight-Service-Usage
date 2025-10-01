@@ -1,31 +1,92 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react";
+import { ServiceUserDataAll } from "@/types/Data";
+import * as d3 from "d3";
+
+
+export const getFilterData = async (urlEndpoint: string, setFilterData: any): Promise<any> => {
+
+    const url = `http://localhost:8080/data/complete/${urlEndpoint}`
+
+    fetch(url)
+        .then((res) => res.json())
+        .then((data: ServiceUserDataAll) => {
+            console.log('[MapOptions] Set filter data to', {data})
+            setFilterData(data.data)
+        })
+
+    return {}
+}
+
+const getColour = (colourStart: string, colourEnd: string, value: number, max: number) => {
+    const colourScale = d3.scaleLinear([0, max], [colourStart, colourEnd])
+
+    return colourScale(value)
+}
 
 // used to choose the geojson base and select the heatmap filter
-export function MapOptions({ mapFilter, setMapFilter, isFsa, setIsFsa }: { mapFilter: any, setMapFilter: any, isFsa: any, setIsFsa: any }) {
+export function MapOptions({ filterData, isFsa, setIsFsa, mapGenerated}: { filterData: any, isFsa: any, setIsFsa: any, mapGenerated: boolean }) {
+    const [filterKey, setFilterKey] = useState('');
+
     const handleToggleFsa = () => {
-        setIsFsa(true)
-    }
+        setIsFsa(true);
+    };
     const handleToggleNb = () => {
-        setIsFsa(false)
-    }
+        setIsFsa(false);
+    };
 
     useEffect(() => {
-        setMapFilter('entryFrequency')
-
-        const radio1 = document.getElementById('fsa-toggle') as HTMLInputElement
-        const radio2 = document.getElementById('nb-toggle') as HTMLInputElement
+        const radio1 = document.getElementById('fsa-toggle') as HTMLInputElement;
+        const radio2 = document.getElementById('nb-toggle') as HTMLInputElement;
 
         if (radio1 && radio2) {
             radio1.checked = isFsa;
             radio2.checked = !isFsa;
+        };
+    }, []);
+
+    const setPathColour = (statName: string, maxVal: number) => {
+        const g = d3.select('g'); // should only be a single g tag
+
+        g.selectAll('path') // go through all paths and change the colour
+            .attr('fill', (d: any) => {
+                const fsa: string = d.properties.CFSAUID
+                const fsaData = filterData[fsa];
+                if (fsaData) return getColour('yellow', 'red', fsaData[statName], maxVal);
+                //console.log('Could not find', fsa, {filterData})
+                return 'gray';
+            }) // testing changing the colour
+    }
+
+    useEffect(() => {
+        console.log('[MapOptions] filterKey useEffect called')
+        if (filterData && mapGenerated && filterKey.length > 0) {
+            console.log('Colouring map')
+            const getMax = (stat: string) => {
+                let max = 0;
+                for (const key in filterData) {
+                    const cur = filterData[key][stat]
+                    if (cur > max) {
+                        max = cur
+                    }
+                }
+                return max
+            }
+            if (filterKey == 'serviceUsersTotalSum') {
+                const maxSum = getMax('total_sum')
+                setPathColour('total_sum', maxSum)
+            } else if (filterKey == 'serviceUsersTotalMean') {
+                const maxMean = getMax('total_mean')
+                setPathColour('total_mean', maxMean)
+            }
+            
         }
-    }, [])
+    }, [filterKey, filterData, mapGenerated])
 
     const onSelectChange = () => {
         const e = document.getElementById('selectedMapFilter') as HTMLSelectElement
         if (e) { // TODO: does not run on first run
             const selectedKey = e.value as string
-            setMapFilter(selectedKey)
+            setFilterKey(selectedKey)
         }
     }
     return (
@@ -39,13 +100,13 @@ export function MapOptions({ mapFilter, setMapFilter, isFsa, setIsFsa }: { mapFi
                 Filter:{' '}
                 <select 
                     id='selectedMapFilter'
-                    name="mapFilter" 
+                    name='mapFilter' 
                     className="p-0.5 border-2 border-solid text-center"
                     onChange={onSelectChange}
                 >
-                    <option value="entryFrequency">Entry frequency</option>
-                    <option value="meanProgramUsers">Average daily program users</option>
-                    <option value="meanOpenBeds">Average daily open beds</option>
+                    <option value="">Select a map filter option...</option>
+                    <option value="serviceUsersTotalSum">Total service users over the time period</option>
+                    <option value="serviceUsersTotalMean">Average service users over the time period</option>
                 </select>
                 <br/>
             </label>

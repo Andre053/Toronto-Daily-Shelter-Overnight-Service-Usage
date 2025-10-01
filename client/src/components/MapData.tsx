@@ -16,16 +16,31 @@ export function MapData({area, isFsa}: {area: string, isFsa: any}) {
             await fetch(url)
                 .then((res) => res.json())
                 .then((servData) => {
-                    console.log({servData})
                     setAreaData(servData.data)
                 })
-                .then(() => setInfoList())
         }
         getData()
     }, [area])
-    const setInfoList = () => {
+
+    useEffect(() => {
+        // when area data changes, i.e. when a new area is clicked, then update the info to show
         if (!areaData) return;
 
+        console.log({areaData})
+        const e = document.getElementById('selectedInfo') as HTMLSelectElement
+        if (e) { // TODO: Why does this not show on first run?
+            const selectedKey = e.value as string
+            const val = areaData[selectedKey] as string[] // TODO: Fix accessing by key
+            setSelectedInfoList(val)
+        } else {
+            // then we know if is first render
+            const val = areaData[selectedInfoOption] as string[]
+            setSelectedInfoList(val)
+        }
+        
+
+    }, [areaData, selectedInfoList])
+    const setInfoList = () => {
         const e = document.getElementById('selectedInfo') as HTMLSelectElement
         if (e) { // TODO: Why does this not show on first run?
 

@@ -2,7 +2,6 @@
 export async function GET() {
 
     // TODO: Process path parameters
-
     const res = await fetch('http://localhost:8080/geodata/fsa'); // get FSA data by default
     const json = await res.json();
 
