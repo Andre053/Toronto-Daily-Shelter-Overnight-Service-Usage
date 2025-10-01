@@ -26,7 +26,6 @@ export function MapData({area, isFsa}: {area: string, isFsa: any}) {
         // when area data changes, i.e. when a new area is clicked, then update the info to show
         if (!areaData) return;
 
-        console.log({areaData})
         const e = document.getElementById('selectedInfo') as HTMLSelectElement
         if (e) { // TODO: Why does this not show on first run?
             const selectedKey = e.value as string
@@ -41,6 +40,9 @@ export function MapData({area, isFsa}: {area: string, isFsa: any}) {
 
     }, [areaData, selectedInfoList])
     const setInfoList = () => {
+
+        if (!areaData) return;
+
         const e = document.getElementById('selectedInfo') as HTMLSelectElement
         if (e) { // TODO: Why does this not show on first run?
 

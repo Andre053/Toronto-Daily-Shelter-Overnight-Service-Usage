@@ -1,4 +1,4 @@
-import { Map } from "@/components/Map";
+import { Map } from "@/components/Explore";
 import { fetchDataBeforeLoad } from "../utils";
 import { FsaData, ServerData } from "@/types/Data";
 import { GeoData } from "@/types/Data";

@@ -1,80 +1,165 @@
-'use client'
-
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { geoPath } from "d3";
+import { FeatureCollection } from "geojson";
 import '../app/globals.css';
-import { GeoData } from "@/types/Data";
-import { GeoMap } from "./MapShow"; 
-import dayjs from "dayjs";
-import { MapOptions } from "./MapOptions";
-import { MapData } from "./MapData";
-import { DatePickers } from "./DataPicker";
-import { ServiceUserDataAll } from "@/types/Data";
+import { GeoData, ServiceUserDataAll } from "@/types/Data";
+import * as d3 from "d3";
 
-/*
-    Map.tsx
-    - Contains the parent map component, some high-level state
-*/
+import { getFilterData } from "./MapOptions";
 
-type Props = {
-    initialGeoData: GeoData;
-}
+// display the heatmap legend
+function ColourLegend({lowColour, highColour, maxVal, minVal}: {lowColour: string, highColour: string, maxVal: number, minVal: number}) {
+    const x = 20
+    const y = 20
 
-export function Map({ initialGeoData }: Props) {
-    const [isFsa, setIsFsa] = useState(initialGeoData.name === 'toronto_fsa_codes_generated')
-    const [geoData, setGeoData] = useState(initialGeoData)
-
-    const [startDate, setStartDate] = useState(dayjs('2025-01-01'));
-    const [endDate, setEndDate] = useState(dayjs());
-    const [mapGenerated, setMapGenerated] = useState(false)
-    const [selectedArea, setSelectedArea] = useState('');
-    const [filterData, setFilterData] = useState<ServiceUserDataAll | null>(null); // data for colouring the map
-    
-
-    const [width, setWidth] = useState(0)
-    const [height, setHeight] = useState(0)
-
-    // set width and height for child component
-    useEffect(() => {
-        const windowHeight = window.innerHeight
-        setHeight(windowHeight / 1.5);
-        setWidth(windowHeight / 1.5)
-        console.log('[Map] Passing down width', width, ' and height', height)
-    }, [])
-
-    useEffect(() => {
-        const url = isFsa ? "http://localhost:8080/geodata/fsa" : "http://localhost:8080/geodata/neighbourhood"
-        const fc = async () => {
-            const data = await fetch(url)
-                .then((res) => res.json())
-                .then((servData) => servData.data)
-            setGeoData({
-                name: data.name,
-                featureCollection: data
-            })
-        } 
-        fc()     
-    }, [isFsa])
+    const divClass = `m-3 flex align-center absolute z-2 top-${x} left-${y} w-40 bg-gray-100 border-black border-2`
+    //const legendClass = `w-20 h-50 bg-gradient-to-b from-${highColour} to-${lowColour} text-white`
+    const legendClass = `w-40 bg-gradient-to-r from-yellow-400 to-red-500 border-l-1 border-r-1 border-black`
 
     return (
+        <div className={divClass} >
+            <span className="w-15 text-center p-1">{minVal}</span>
+            <div
+                className={legendClass}
+            />
+            <span className="w-15 text-center p-1">{maxVal}</span>
+        </div>
+    )
+} 
+
+// takes geoJson data from backend, keeps track of whether map is generated with FSA or neighbourhood data
+// calls all related map components to display on the page
+// manages all key state variables
+// TODO: Layer both geomaps? Neighbourhood layer could be used to display the data for the user
+type GeoMapProps = {
+    width: number;
+    height: number;
+    geoData: GeoData;
+    isFsa: any;
+    setSelectedArea: any;
+    setMapGenerated: any;
+    filterData: any;
+    setFilterData: any;
+}
+
+export function GeoMap({ width, height, geoData, filterData, setFilterData, isFsa, setSelectedArea, setMapGenerated}: GeoMapProps) {
+    const featureCollection: FeatureCollection = geoData.featureCollection
+    
+    const [zoomTransform, setZoomTransform] = useState(null);
+    
+        
+    const projection = d3.geoMercator()
+        .fitSize([width/2, height/2], featureCollection);
+
+    const geoGenerator = geoPath().projection(projection);
+
+    const svgRef = useRef<SVGSVGElement | null>(null);
+    const gRef = useRef<SVGGElement | null>(null);
+
+    const zoom: any = d3.zoom()
+        .scaleExtent([1, 2]) // TODO: Get best scale extent
+        .on("zoom", (e) => { 
+            setZoomTransform(e.transform)
+        });
+
+    const mouseOver = (e: any) => {
+        d3.selectAll('path')
+            .transition()
+            .duration(200)
+            .style('opacity', .5)
+
+        d3.select(e.target)
+            .transition()
+            .duration(200)
+            .style('opacity', 0.8)
+            .style('stroke', 'black')
+    };
+
+    const mouseLeave = (e: any) => {
+        d3.selectAll('path')
+            .transition()
+            .duration(200)
+            .style('opacity', .6)
+        d3.select(e.target)
+            .transition()
+            .duration(200)
+    };
+
+    const mouseClick = (e: any) => {
+        const area = isFsa ? e.target.attributes[0].value : e.target.attributes[0].value
+        setSelectedArea(area)
+
+        // TODO: Keep the target selected on the map once clicked, until a new one is clicked
+        // if opacity is 1, leave it 
+        d3.select(e.target)
+            .style('opacity', 1)
+            .style('stroke', 'black')
+    };
+
+    useEffect(() => {
+        if (!geoData) return;
+        
+        const svg = d3.select(svgRef.current);
+        const g = d3.select(gRef.current);
+
+        g.selectAll('*').remove(); // remove all path elements when geodata changed
+
+        // prevent wheel from scrolling the page when on SVG element
+        svg.node()?.addEventListener('wheel', (e) => {
+            e.preventDefault()
+        }, { passive: false });
+
+        svg
+            .attr('width', width/2)
+            .attr('height', height/2)
+            .call(zoom);
+        
+        if (isFsa) {
+            g.selectAll('path')
+                .data(featureCollection.features)
+                .enter()
+                .append('path')
+                    .attr('key', (d) => d.properties?.CFSAUID)
+                    .attr('d', geoGenerator)
+                    .attr('fill', 'green')
+                    .on('mouseover', mouseOver)
+                    .on('mouseleave', mouseLeave)
+                    .on('click', mouseClick);
+            setMapGenerated(true) // supposed to trigger the colouring of the elements
+        } else {
+            // use to add an additional layer
+            g.selectAll('path')
+                .data(featureCollection.features)
+                .enter()
+                .append('path')
+                    .attr('key', (d) => d.properties?.AREA_NAME)
+                    .attr('d', geoGenerator)
+                    .on('mouseover', mouseOver)
+                    .on('mouseleave', mouseLeave)
+                    .on('click', mouseClick);
+        }
+        if (!filterData) getFilterData('serviceUsers', setFilterData)
+     }, [geoData, isFsa, width, height]);
+
+     useEffect(() => {
+        const g = d3.select(gRef.current);
+        g.attr('transform', zoomTransform);
+
+     }, [zoomTransform])
+
+    // TODO: Improve spacing of info elements
+    // TODO: Add colour legend when fixed
+    // ColourLegend lowColour={'#ebc034'} highColour={'#eb4034'} maxVal={fsaStats.max} minVal={0}/>
+    const styles = `justify-center z-1 grid col-span-1`
+    return (
         <>
-            <h1 className="text-[36px] mb-4 mt-4">Map of Toronto {isFsa ? 'by FSA' : 'by Neighbourhood'}</h1>
-            <div id='geomap-container' className='grid content-center grid-cols-2 gap-5 ml-10 mr-10'>
-                <GeoMap 
-                    width={width} 
-                    height={height} 
-                    geoData={geoData} 
-                    filterData={filterData} 
-                    setFilterData={setFilterData} isFsa={isFsa} 
-                    setSelectedArea={setSelectedArea} 
-                    setMapGenerated={setMapGenerated}
-                />
-                <div className='grid grid-cols-1 content-start gap-4 border-4 bg-gray-200 p-5'>
-                    <MapOptions filterData={filterData} isFsa={isFsa} setIsFsa={setIsFsa} mapGenerated={mapGenerated}/><br/>
-                    <DatePickers startDate={startDate} endDate={endDate} setStartDate={setStartDate} setEndDate={setEndDate}/><br/>
-                    <MapData area={selectedArea} isFsa={isFsa} />
+            <div id='map-container' className={styles}>
+                <div className='relative'>
+                    <svg ref={svgRef}>
+                        <g ref={gRef} />
+                    </svg>
                 </div>
             </div>
-            
         </>
     )
 }
