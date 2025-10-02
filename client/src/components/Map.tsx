@@ -5,7 +5,7 @@ import '../app/globals.css';
 import { GeoData, ServiceUserDataAll } from "@/types/Data";
 import * as d3 from "d3";
 
-import { getFilterData } from "./MapOptions";
+import { getFilterData } from "./ExploreOptions";
 
 // display the heatmap legend
 function ColourLegend({lowColour, highColour, maxVal, minVal}: {lowColour: string, highColour: string, maxVal: number, minVal: number}) {
@@ -49,7 +49,7 @@ export function GeoMap({ width, height, geoData, filterData, setFilterData, isFs
     
         
     const projection = d3.geoMercator()
-        .fitSize([width/2, height/2], featureCollection);
+        .fitSize([width/2.5, height/2.5], featureCollection);
 
     const geoGenerator = geoPath().projection(projection);
 

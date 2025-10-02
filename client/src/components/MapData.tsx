@@ -1,14 +1,53 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useContext } from "react"
+import { ThemeContext } from "@emotion/react"
 
-export function MapData({area, isFsa}: {area: string, isFsa: any}) {
-    const [areaData, setAreaData] = useState<string[] | null>(null)
-    const [selectedInfoList, setSelectedInfoList] = useState<string[]>([])
+type dataStats = {
+    totalAvgServiceUsers: string;
+    fsaWithHighestAvgServiceUsers: string;
+    highestAvgServiceUsers: string;
+}
+
+// TODO: Handle when FSA has no data
+export function MapData({filterData, area, isFsa}: {filterData: any, area: string, isFsa: any}) {
+    const [areaData, setAreaData] = useState<any>(null)
     const [selectedInfoOption, setSelectedInfoOption] = useState('active_orgs')
+    const [selectedInfoList, setSelectedInfoList] = useState([])
+
+    const [filterDataStats, setFilterDataStats] = useState<dataStats | null>(null)
+
+    const currentTab = useContext(ThemeContext) as string // TODO: May be a better way
+
+    useEffect(() => {
+        // once filter data is set
+        if (!filterData) return;
+
+        let total = 0;
+        let max = 0;
+        let fsa = ''
+
+        for (let key in filterData) {
+            const totalMean = filterData[key]['total_mean']
+            total += totalMean
+            if (totalMean > max) {
+                max = totalMean;
+                fsa = key
+            }
+        }
+        const totalString = total.toFixed(2)
+        
+        const maxString = max.toString()
+
+        const stats: dataStats = {
+            totalAvgServiceUsers: totalString,
+            fsaWithHighestAvgServiceUsers: fsa,
+            highestAvgServiceUsers: maxString
+        }
+        setFilterDataStats(stats)
+    }, [filterData])
 
     useEffect(() => {
         if (!area) return;
-        setAreaData(null)
-        setSelectedInfoList([])
+        setAreaData(null); // clear set area data
 
         const url = isFsa ? `http://localhost:8080/data/fsa/${area}` : `http://localhost:8080/data/nb/${area}`
 
@@ -23,49 +62,39 @@ export function MapData({area, isFsa}: {area: string, isFsa: any}) {
     }, [area])
 
     useEffect(() => {
-        // when area data changes, i.e. when a new area is clicked, then update the info to show
         if (!areaData) return;
+        setSelectedInfoList(areaData[selectedInfoOption])
+    }, [selectedInfoOption, areaData])
 
-        const e = document.getElementById('selectedInfo') as HTMLSelectElement
-        if (e) { // TODO: Why does this not show on first run?
-            const selectedKey = e.value as string
-            const val = areaData[selectedKey] as string[] // TODO: Fix accessing by key
-            setSelectedInfoList(val)
-        } else {
-            // then we know if is first render
-            const val = areaData[selectedInfoOption] as string[]
-            setSelectedInfoList(val)
-        }
-        
-
-    }, [areaData, selectedInfoList])
-    const setInfoList = () => {
-
-        if (!areaData) return;
-
-        const e = document.getElementById('selectedInfo') as HTMLSelectElement
-        if (e) { // TODO: Why does this not show on first run?
-
-            const selectedKey = e.value as string
-            setSelectedInfoOption(selectedKey)
-            const val = areaData[selectedKey] as string[] // TODO: Fix accessing by key
-            console.log({areaData}, {val})
-            setSelectedInfoList(val)
-        } else {
-            // then we know if is first render
-            const val = areaData[selectedInfoOption] as string[]
-            setSelectedInfoList(val)
-        }
-    }
-    const onChange = () => {
-        setInfoList()
+    const onChange = (v: any) => {
+        // a new drop-down option selected
+        console.log({v})
+        setSelectedInfoOption(v)
     }
     return (
-        <div>
-            <h2 className="text-[24px] font-bold">Area information</h2>
+        <div className="grid">
+            <h2 className="text-[24px] font-bold">Stats and information</h2>
+            <h2 className="text-[16px] font-bold">Total</h2>
+            {filterDataStats && (
+                <>
+                    <ul className='list-disc ml-5'>
+                        <li>There are {filterDataStats.totalAvgServiceUsers} average daily users across the city</li>
+                        <li>The highest average daily service users is {filterDataStats.highestAvgServiceUsers} in {filterDataStats.fsaWithHighestAvgServiceUsers} </li>
+                    </ul>
+                </>
+            )}
+            <h2 className="text-[16px] font-bold">Area</h2>
             {area.length > 1 && (
                 <>
-                    <h2 className='text-[16px] mb-4'>{isFsa ? "FSA" : "Neighbourhood"} selected: {area}</h2>
+                    <h2 className='text-[16px]'>{isFsa ? "FSA" : "Neighbourhood"} selected: {area}</h2>
+                    {areaData && filterDataStats && (
+                            <ul className='list-disc ml-5'>
+                                <li>{Math.round(filterData[area]['total_mean'])} average service users per day</li>
+                                <li>{areaData['active_orgs_count']} active organization</li>
+                                <li>{areaData['shelters_count']} active shelters</li>
+                                <li>{areaData['active_programs_count']} active programs</li>
+                            </ul>
+                    )}
                     <select 
                         id="selectedInfo"
                         name="selectedInfo" 
@@ -80,17 +109,13 @@ export function MapData({area, isFsa}: {area: string, isFsa: any}) {
                     {!areaData && <p>Loading data...</p>}
                     {areaData && (
                         <>
-                            
-                            {selectedInfoList.length > 0 ? (
-                                <ul className='list-disc ml-5'>
-                                {selectedInfoList.map((v, i) => {
-                                    return (
-                                        <li key={i}>{v}</li>
-                                    )
-                                })}
-                                </ul>
-                                ) : (<><p>No data found</p></>)
-                            }
+                            <ul className='list-disc ml-5'>
+                            {selectedInfoList.map((v, i) => {
+                                return (
+                                    <li key={i}>{v}</li>
+                                )
+                            })}
+                            </ul>
                         </>
                     )}
                         

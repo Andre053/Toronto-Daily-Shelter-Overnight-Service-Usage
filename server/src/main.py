@@ -145,7 +145,7 @@ def get_area_data(area, area_type):
 def get_data(col_filter):
     df = load_dataframe()
 
-    df = df[['OCCUPANCY_DATE', 'ORGANIZATION_NAME', 'SHELTER_ID', 'SHELTER_GROUP', 'LOCATION_NAME', 'LOCATION_ADDRESS', 'LOCATION_POSTAL_CODE', 'LOCATION_CITY', 'PROGRAM_ID', 'PROGRAM_NAME', 'PROGRAM_MODEL', 'SECTOR', 'OVERNIGHT_SERVICE_TYPE', 'SERVICE_USER_COUNT', 'CAPACITY_ACTUAL_BED', 'CAPACITY_FUNDING_BED', 'OCCUPIED_BEDS', 'UNOCCUPIED_BEDS', 'UNAVAILABLE_BEDS', 'OCCUPIED_ROOMS', 'UNOCCUPIED_ROOMS']]
+    df = df[['OCCUPANCY_DATE', 'ORGANIZATION_NAME', 'ORGANIZATION_ID', 'SHELTER_ID', 'SHELTER_GROUP', 'LOCATION_NAME', 'LOCATION_ID', 'LOCATION_ADDRESS', 'LOCATION_POSTAL_CODE', 'PROGRAM_ID', 'PROGRAM_NAME', 'PROGRAM_MODEL', 'SECTOR', 'OVERNIGHT_SERVICE_TYPE', 'SERVICE_USER_COUNT', 'CAPACITY_ACTUAL_BED', 'CAPACITY_FUNDING_BED', 'OCCUPIED_BEDS', 'UNOCCUPIED_BEDS', 'UNAVAILABLE_BEDS', 'OCCUPIED_ROOMS', 'UNOCCUPIED_ROOMS']]
     df = prep_data(df)
 
     if col_filter: return df[col_filter]
@@ -181,22 +181,31 @@ def analyze_fsa(df):
     return payload
 
 def analyze_area_data(df, area):
-    active_programs = df['PROGRAM_NAME'].unique().tolist()
+    # there may be multiple names of the same datapoint, for counts, use ID
+    # TODO: Only use the most recent name if multiple, currently we send all names
+    active_programs = df['PROGRAM_NAME'].unique().tolist() 
+    active_programs_count = len(df['PROGRAM_ID'].unique())
     service_types = df['OVERNIGHT_SERVICE_TYPE'].unique().tolist()
     active_organizations = df['ORGANIZATION_NAME'].unique().tolist()
+    active_organizations_count = len(df['ORGANIZATION_ID'].unique()) 
     shelters = df['LOCATION_NAME'].unique().tolist()
+    shelters_count = len(df['LOCATION_ID'].unique())
 
     analytic_cols = ['OCCUPANCY_DATE', 'SERVICE_USER_COUNT', 'CAPACITY_ACTUAL_BED', 'CAPACITY_FUNDING_BED', 'OCCUPIED_BEDS', 'UNOCCUPIED_BEDS', 'UNAVAILABLE_BEDS', 'OCCUPIED_ROOMS', 'UNOCCUPIED_ROOMS']
     df_by_date = df[analytic_cols].groupby(['OCCUPANCY_DATE'])
     means = df_by_date.mean().replace({np.nan: None})
     mean_dict = means.head(50).to_dict()
 
+
     payload = {
         "area": area,
         "active_programs": active_programs,
+        "active_programs_count": active_programs_count,
         "service_types": service_types,
         "shelters": shelters,
+        "shelters_count": shelters_count,
         "active_orgs": active_organizations,
+        "active_orgs_count": active_organizations_count,
         "means": mean_dict
     }
     return payload

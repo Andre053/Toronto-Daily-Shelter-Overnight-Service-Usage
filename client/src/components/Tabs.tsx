@@ -1,8 +1,8 @@
-import { PropsWithChildren, useState } from "react";
 import { Box, Tabs, Tab } from "@mui/material";
-import { Children } from "react";
 import { GeoData } from "@/types/Data";
 import { GeoMap } from "./Map";
+import { useContext, useState } from "react";
+import { TabContext } from "./Explore";
 
 function TabPanal({value, idx, children}: {value: string, idx: string, children: React.ReactNode}) {
     const active = value === idx
@@ -15,8 +15,6 @@ function TabPanal({value, idx, children}: {value: string, idx: string, children:
 }
 
 type Props = {
-    selectedTab: string;
-    setSelectedTab: any;
     width: number;
     height: number;
     geoData: GeoData;
@@ -27,8 +25,8 @@ type Props = {
     setFilterData: any;
 }
 
-export function VisualizationTabs({ selectedTab, setSelectedTab, width, height, geoData, filterData, setFilterData, isFsa, setSelectedArea, setMapGenerated}: Props) {
-    
+export function VisualizationTabs({width, height, geoData, filterData, setFilterData, isFsa, setSelectedArea, setMapGenerated}: Props) {
+    const {selectedTab, setSelectedTab} = useContext(TabContext); // TODO: May be a better way
 
     const handleChange = (e: any, v: any) => {
         setSelectedTab(v)

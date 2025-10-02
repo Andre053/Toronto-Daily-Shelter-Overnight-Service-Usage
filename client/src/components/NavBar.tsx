@@ -16,6 +16,9 @@ export const NavBar = () => (
             LOGO HERE
         </Link>
         <ul className="flex items-center gap-8 mt-2 mb-2 mr-5">
+            <LinkItem href="/story">
+                Story
+            </LinkItem>  
             <LinkItem href="/explore">
                 Explore
             </LinkItem> 

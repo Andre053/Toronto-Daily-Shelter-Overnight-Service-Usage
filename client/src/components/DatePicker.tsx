@@ -14,8 +14,8 @@ export function DatePickers({startDate, endDate, setStartDate, setEndDate}: {sta
     return (
         <label className='grid content-between'>
             <LocalizationProvider dateAdapter={AdapterDayjs}>
-                <DatePicker className='py-10' label='End date' value={endDate} onChange={onChangeEndDate}/>
-                <DatePicker className='p-5' label='Start date' value={startDate} onChange={onChangeStartDate}/>
+                <DatePicker sx={{width: 200, height: 40}} className='my-10' label='End date' value={endDate} onChange={onChangeEndDate}/>
+                <DatePicker sx={{width: 200, height: 40}} className='p-5' label='Start date' value={startDate} onChange={onChangeStartDate}/>
             </LocalizationProvider>
         </label>
     )

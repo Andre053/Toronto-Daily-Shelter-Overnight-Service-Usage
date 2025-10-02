@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 import { ServiceUserDataAll } from "@/types/Data";
 import * as d3 from "d3";
 
-
 export const getFilterData = async (urlEndpoint: string, setFilterData: any): Promise<any> => {
-
     const url = `http://localhost:8080/data/complete/${urlEndpoint}`
 
     fetch(url)
@@ -13,7 +11,6 @@ export const getFilterData = async (urlEndpoint: string, setFilterData: any): Pr
             console.log('[MapOptions] Set filter data to', {data})
             setFilterData(data.data)
         })
-
     return {}
 }
 
@@ -23,10 +20,21 @@ const getColour = (colourStart: string, colourEnd: string, value: number, max: n
     return colourScale(value)
 }
 
-// used to choose the geojson base and select the heatmap filter
-export function MapOptions({ filterData, isFsa, setIsFsa, mapGenerated}: { filterData: any, isFsa: any, setIsFsa: any, mapGenerated: boolean }) {
-    const [filterKey, setFilterKey] = useState('');
+const setPathColour = (statName: string, maxVal: number, filterData: any) => {
+    const g = d3.select('g'); // should only be a single g tag
 
+    g.selectAll('path') // go through all paths and change the colour
+        .attr('fill', (d: any) => {
+            const fsa: string = d.properties.CFSAUID
+            const fsaData = filterData[fsa];
+            if (fsaData) return getColour('yellow', 'red', fsaData[statName], maxVal);
+            //console.log('Could not find', fsa, {filterData})
+            return 'gray';
+        }) // testing changing the colour
+}
+
+// TODO: Decide future of this componenet
+function radioOptions({isFsa, setIsFsa}: {isFsa: boolean, setIsFsa: any}) {
     const handleToggleFsa = () => {
         setIsFsa(true);
     };
@@ -44,18 +52,18 @@ export function MapOptions({ filterData, isFsa, setIsFsa, mapGenerated}: { filte
         };
     }, []);
 
-    const setPathColour = (statName: string, maxVal: number) => {
-        const g = d3.select('g'); // should only be a single g tag
+    return (
+        <label>
+            <input id='fsa-toggle' type='radio' name='map-base' onClick={handleToggleFsa}/> By FSA<br/>
+            <input id='nb-toggle' type='radio' name='map-base' onClick={handleToggleNb}/> By neighbourhood<br/>
+        </label>
+    )
+}
 
-        g.selectAll('path') // go through all paths and change the colour
-            .attr('fill', (d: any) => {
-                const fsa: string = d.properties.CFSAUID
-                const fsaData = filterData[fsa];
-                if (fsaData) return getColour('yellow', 'red', fsaData[statName], maxVal);
-                //console.log('Could not find', fsa, {filterData})
-                return 'gray';
-            }) // testing changing the colour
-    }
+// TODO: Fix auto-setting the map filter
+// used to choose the geojson base and select the heatmap filter
+export function MapOptions({ filterData, isFsa, setIsFsa, mapGenerated}: { filterData: any, isFsa: any, setIsFsa: any, mapGenerated: boolean }) {
+    const [filterKey, setFilterKey] = useState(''); // TODO: This should automatically colour the map
 
     useEffect(() => {
         console.log('[MapOptions] filterKey useEffect called')
@@ -65,20 +73,17 @@ export function MapOptions({ filterData, isFsa, setIsFsa, mapGenerated}: { filte
                 let max = 0;
                 for (const key in filterData) {
                     const cur = filterData[key][stat]
-                    if (cur > max) {
-                        max = cur
-                    }
+                    if (cur > max) max = cur
                 }
                 return max
             }
-            if (filterKey == 'serviceUsersTotalSum') {
+            if (filterKey == 'dailyServiceUsers') {
                 const maxSum = getMax('total_sum')
-                setPathColour('total_sum', maxSum)
-            } else if (filterKey == 'serviceUsersTotalMean') {
-                const maxMean = getMax('total_mean')
-                setPathColour('total_mean', maxMean)
-            }
-            
+                setPathColour('total_sum', maxSum, filterData)
+            } 
+        }
+        if (filterKey.length == 0) { // set filter key
+            setFilterKey('dailyServiceUsers');
         }
     }, [filterKey, filterData, mapGenerated])
 
@@ -90,23 +95,17 @@ export function MapOptions({ filterData, isFsa, setIsFsa, mapGenerated}: { filte
         }
     }
     return (
-        <div className='grid content-normal'>
+        <div className='grid'>
             <h2 className="text-[30px]">Options</h2>
             <label>
-                <input id='fsa-toggle' type='radio' name='map-base' onClick={handleToggleFsa}/> By FSA<br/>
-                <input id='nb-toggle' type='radio' name='map-base' onClick={handleToggleNb}/> By neighbourhood<br/>
-            </label>
-            <label>
-                Filter:{' '}
                 <select 
                     id='selectedMapFilter'
                     name='mapFilter' 
-                    className="p-0.5 border-2 border-solid text-center"
+                    className="p-1 my-2 border-2 border-solid text-center"
                     onChange={onSelectChange}
                 >
                     <option value="">Select a map filter option...</option>
-                    <option value="serviceUsersTotalSum">Total service users over the time period</option>
-                    <option value="serviceUsersTotalMean">Average service users over the time period</option>
+                    <option value="dailyServiceUsers">Daily service users</option>
                 </select>
                 <br/>
             </label>

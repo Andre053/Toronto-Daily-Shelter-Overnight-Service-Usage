@@ -1,15 +1,17 @@
 'use client'
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, createContext } from "react";
 import '../app/globals.css';
 import { GeoData } from "@/types/Data";
 import { GeoMap } from "./Map"; 
 import dayjs from "dayjs";
-import { MapOptions } from "./MapOptions";
+import { MapOptions } from "./ExploreOptions";
 import { MapData } from "./MapData";
-import { DatePickers } from "./DataPicker";
+import { DatePickers } from "./DatePicker";
 import { ServiceUserDataAll } from "@/types/Data";
 import { VisualizationTabs } from "./Tabs";
+import { ThemeContext } from "@emotion/react";
+import { ExploreDisplay } from "./ExploreDisplay";
 
 /*
     Map.tsx
@@ -20,12 +22,13 @@ type Props = {
     initialGeoData: GeoData;
 }
 
-export function Map({ initialGeoData }: Props) {
+export const TabContext = createContext<any>(null);
 
-    const [selectedTab, setSelectedTab] = useState('tab-overview');
+export function Map({ initialGeoData }: Props) {
 
     const [isFsa, setIsFsa] = useState(initialGeoData.name === 'toronto_fsa_codes_generated')
     const [geoData, setGeoData] = useState(initialGeoData)
+    const [selectedTab, setSelectedTab] = useState('tab-overview')
 
     const [startDate, setStartDate] = useState(dayjs('2025-01-01'));
     const [endDate, setEndDate] = useState(dayjs());
@@ -61,31 +64,34 @@ export function Map({ initialGeoData }: Props) {
 
     const styles = `w-${width} h-${height} border-4 bg-gray-200 p-5`
 
-    return (
-        <>
-            <h1 className="text-[36px] mb-4 mt-4">Exploration tool</h1>
+    // TODO: Add back in date pickers to select timeline
+    //<DatePickers startDate={startDate} endDate={endDate} setStartDate={setStartDate} setEndDate={setEndDate}/><br/>
 
+    return (
+        <TabContext value={{selectedTab, setSelectedTab}}>
+            <h1 className="text-[36px] mb-4 mt-4">Exploration tool</h1>
             <div id='geomap-container' className='grid content-center grid-cols-2 gap-5 ml-10 mr-10'>
                 <div className={styles}>
                     <VisualizationTabs
-                        selectedTab={selectedTab}
-                        setSelectedTab={setSelectedTab}
                         width={width} 
                         height={height} 
                         geoData={geoData} 
                         filterData={filterData} 
                         setFilterData={setFilterData} isFsa={isFsa} 
-                        setSelectedArea={setSelectedArea} 
+                        setSelectedArea={setSelectedArea}
                         setMapGenerated={setMapGenerated}
                     />
                 </div>
-                <div className='grid grid-cols-1 content-start gap-4 border-4 bg-gray-200 p-5'>
-                    <MapOptions filterData={filterData} isFsa={isFsa} setIsFsa={setIsFsa} mapGenerated={mapGenerated}/><br/>
-                    <DatePickers startDate={startDate} endDate={endDate} setStartDate={setStartDate} setEndDate={setEndDate}/><br/>
-                    <MapData area={selectedArea} isFsa={isFsa} />
+                <div className='flex flex-wrap content-start gap-4 border-4 bg-gray-200 p-5'>
+                    <ExploreDisplay
+                        filterData={filterData}
+                        isFsa={isFsa}
+                        setIsFsa={setIsFsa}
+                        mapGenerated={mapGenerated}
+                        selectedArea={selectedArea}
+                    />
                 </div>
             </div>
-            
-        </>
+        </TabContext>
     )
 }
