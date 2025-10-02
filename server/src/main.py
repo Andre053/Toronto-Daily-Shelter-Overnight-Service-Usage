@@ -40,11 +40,11 @@ JSON_BASE = {
 
 FSV_CODES = "'M4V' 'M4S' 'M4C' 'M8Y' 'M8W' 'M1H' 'M6S' 'M6E' 'M2M' 'M3C' 'M4T' 'M1L' 'M6G' 'M6H' 'M6A' 'M6B' 'M5R' 'M4K' 'M5T' 'M4G' 'M1S' 'M3A' 'M1N' 'M9C' 'M6J' 'M6K' 'M4L' 'M5S' 'M6M' 'M4E' 'M8V' 'M5A' 'M6N' 'M5N' 'M9A' 'M6R' 'M4B' 'M4J' 'M3H' 'M9M' 'M9R' 'M4N' 'M2K' 'M9N' 'M3L' 'M4A' 'M1B' 'M9W' 'M6C' 'M8Z' 'M5P' 'M5M' 'M4R' 'M2J' 'M2N' 'M4W' 'M1C' 'M4M' 'M6P' 'M1M' 'M1K' 'M3B' 'M9L' 'M1E' 'M2R' 'M1R' 'M2H' 'M4X' 'M9B' 'M1X' 'M5V' 'M4P' 'M6L' 'M2P' 'M2L' 'M8X' 'M5H' 'M1P' 'M9V' 'M5B' 'M1J' 'M9P' 'M3M' 'M3K' 'M1T' 'M1V' 'M3N' 'M3J' 'M1G' 'M1W' 'M4H' 'M4Y' 'M5C' 'M5J' 'M5E' 'M5G' 'M7A' 'M5X'".replace("'", "").split(" ")
 
+GLOBALS_PATH = "./globals.json"
 DATA_PATH = "../data/data_2025.csv"
 GEOJSON_FSA_PATH = "../data/GeoJson/tor_fsa_cbf.geojson"
 GEOJSON_NB_PATH = "../data/GeoJson/tor_neighbourhoods.geojson"
 
-DATA_LAST_UPDATED = "Monday, 29. September 2025"
 app = FastAPI()
 
 origins = [
@@ -62,18 +62,8 @@ app.add_middleware(
 )
 
 # TODO: Implement running everyday
+# TODO: Only run for 2025 dataset
 def download_all_data_csv():
-    current_date = datetime.now().strftime("%A, %d. %B %Y")
-    
-    # check if already imported today
-    if DATA_LAST_UPDATED == str(current_date):
-        print('Data is already up to date')
-        return
-    
-    print(f"Data last updated on {DATA_LAST_UPDATED}, updating now on {str(current_date)}")
-    
-    set_DATA_LAST_UPDATED(str(current_date))
-
     BASE_URL = "https://ckan0.cf.opendata.inter.prod-toronto.ca"
     PACKAGE = "daily-shelter-overnight-service-occupancy-capacity"
 
@@ -83,18 +73,18 @@ def download_all_data_csv():
     dir = os.getcwd()
 
     package = req.get(url, params=params).json()
-    print("Retrieved package\n\n\n")
 
+    package_name_2025 = 'Daily shelter overnight occupancy'
     for i, resource in enumerate(package['result']['resources']):
         if resource['datastore_active']:
-            # get all records in CSV
-            url = BASE_URL + '/datastore/dump/' + resource['id']
-
-            filename = os.path.join(dir, f"../data/data_{resource['id']}.csv")
-            urlretrieve(url=url, filename=filename)
-        if not resource['datastore_active']:
+            # get 2025 records in CSV
             url = BASE_URL + '/api/3/action/resource_show?id=' + resource['id']
-            resource_metadata = req.get(url).json()
+            metadata = req.get(url).json()
+            if not metadata or metadata['result']['name'] != package_name_2025: continue
+
+            url = BASE_URL + '/datastore/dump/' + resource['id']
+            filename = os.path.join(dir, f"../data/data_2025.csv")
+            urlretrieve(url=url, filename=filename)
 
 # parameters are documented: https://docs.ckan.org/en/latest/maintaining/datastore.html
 # TODO: Implement with a API endpoint
@@ -126,7 +116,27 @@ def prep_data(df):
     df['LOCATION_FSA_CODE'] = df['LOCATION_POSTAL_CODE'].apply(lambda x: x[:3] if pd.notnull(x) else "N/A")
     return df
 
+def get_last_updated_date():
+    with open(GLOBALS_PATH, 'r') as f:
+        data = json.load(f)
+        return data['DATA_LAST_UPDATED']
+
+
+def set_last_updated_date():
+    current_date = datetime.now().strftime('%Y/%m/%d')
+    data = {'DATA_LAST_UPDATED': f'{current_date}'}
+    with open(GLOBALS_PATH, 'w') as f:
+        json.dump(data, f, indent=4)
+
 def load_dataframe():
+    current_date = datetime.now().strftime('%Y/%m/%d')
+    
+    # check if already imported today
+    last_updated = get_last_updated_date()
+    if not (current_date == last_updated):
+        print('Data is not up to date')
+        download_all_data_csv()
+        set_last_updated_date()
     return pd.read_csv(DATA_PATH)
 
 # TODO: Add more data to send
@@ -136,6 +146,10 @@ def get_area_data(area, area_type):
 
     if area_type == 'fsa':
         df = df[df['LOCATION_FSA_CODE'] == area]
+        #print(df.head())
+        if df.empty: 
+            print('No records for FSA:', area)
+            return None
     if area_type == 'nb':
         df = df[df['PROGRAM_AREA'] == area]
 
@@ -196,7 +210,6 @@ def analyze_area_data(df, area):
     means = df_by_date.mean().replace({np.nan: None})
     mean_dict = means.head(50).to_dict()
 
-
     payload = {
         "area": area,
         "active_programs": active_programs,
@@ -235,8 +248,8 @@ def analyze_daily_service_user_count(df):
             data[fsa]['daily_stats'].append({'DATE': date, 'SERVICE_USER_SUM': daily_user_count_sum, 'SERVICE_USER_MEAN': daily_user_count_mean})
         data[fsa]['total_sum'] = total_sum 
         data[fsa]['total_mean'] = round(total_sum/total_mean, 2)
-    print(f'[analyze_daily_service_user_count] data creation completed with length {len(data)}')
-
+    
+    #print(f'[analyze_daily_service_user_count] data creation completed with length {len(data)}')
     return data
 
 def analyze_filter_type(df, filter):
@@ -292,10 +305,12 @@ async def get_map_data(filter_type: str, end: str = '2025-09-01', start: str = '
 
 @app.get("/data/fsa/{fsa_code}")
 async def data_by_fsa(fsa_code: str, end: str = '2025-09-01', start: str = '2025-01-01'):
-    data = get_area_data(fsa_code, 'fsa')
 
+    data = get_area_data(fsa_code, 'fsa')
+    if not data: return {'message': f'Failed FSA data request for {fsa_code}', 'data': {}}
+    
     payload = {
-        'message': f'{fsa_code} data requested.',
+        'message': f'Successful FSA data request',
         'data': data,
     }
     return payload
@@ -306,28 +321,5 @@ async def data_by_fsa(neighbourhood: str):
 
     return {'message': 'No data available for neighbourhoods', 'data': {}}
 
-# TODO: Finish implementing
-def set_globals():
-    global DATA_LAST_UPDATED
-
-    DATA_LAST_UPDATED = str(data['DATA_LAST_UPDATED'])
-
-    with open("globals.json", "r") as f:
-        data = json.load(f)
-        set_globals(data)
-
-# TODO: Finish implementing
-def set_DATA_LAST_UPDATED(current_date_str):
-    global DATA_LAST_UPDATED
-    DATA_LAST_UPDATED = current_date_str
-    
-    with open("globals.json", "w") as f:
-        data = {
-            'DATA_LAST_UPDATED': current_date_str
-        }
-        json.dump(data, f)
-
 if __name__ == '__main__':
     uvicorn.run('main:app', host='0.0.0.0', port=8080, reload=True) # run the server manually
-
-    

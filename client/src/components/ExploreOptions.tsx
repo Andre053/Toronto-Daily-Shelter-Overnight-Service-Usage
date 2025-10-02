@@ -21,16 +21,18 @@ const getColour = (colourStart: string, colourEnd: string, value: number, max: n
 }
 
 const setPathColour = (statName: string, maxVal: number, filterData: any) => {
-    const g = d3.select('g'); // should only be a single g tag
+    const g = d3.select('#map-group'); // should only be a single g tag
 
     g.selectAll('path') // go through all paths and change the colour
+        .classed('stroke-black', true)
         .attr('fill', (d: any) => {
             const fsa: string = d.properties.CFSAUID
             const fsaData = filterData[fsa];
             if (fsaData) return getColour('yellow', 'red', fsaData[statName], maxVal);
             //console.log('Could not find', fsa, {filterData})
             return 'gray';
-        }) // testing changing the colour
+        })
+    g.style('visibility', 'visible') // make visible once recoloured
 }
 
 // TODO: Decide future of this componenet
@@ -62,12 +64,17 @@ function radioOptions({isFsa, setIsFsa}: {isFsa: boolean, setIsFsa: any}) {
 
 // TODO: Fix auto-setting the map filter
 // used to choose the geojson base and select the heatmap filter
-export function MapOptions({ filterData, isFsa, setIsFsa, mapGenerated}: { filterData: any, isFsa: any, setIsFsa: any, mapGenerated: boolean }) {
-    const [filterKey, setFilterKey] = useState(''); // TODO: This should automatically colour the map
+
+type Props = {
+    filterData: ServiceUserDataAll | null;
+}
+
+export function MapOptions({ filterData}: Props) {
+    const [filterKey, setFilterKey] = useState<string | null>(null); // TODO: This should automatically colour the map
 
     useEffect(() => {
         console.log('[MapOptions] filterKey useEffect called')
-        if (filterData && mapGenerated && filterKey.length > 0) {
+        if (filterData && filterKey) {
             console.log('Colouring map')
             const getMax = (stat: string) => {
                 let max = 0;
@@ -82,10 +89,11 @@ export function MapOptions({ filterData, isFsa, setIsFsa, mapGenerated}: { filte
                 setPathColour('total_sum', maxSum, filterData)
             } 
         }
-        if (filterKey.length == 0) { // set filter key
+        if (!filterKey) { // set filter key
             setFilterKey('dailyServiceUsers');
+            
         }
-    }, [filterKey, filterData, mapGenerated])
+    }, [filterKey, filterData])
 
     const onSelectChange = () => {
         const e = document.getElementById('selectedMapFilter') as HTMLSelectElement
@@ -96,19 +104,19 @@ export function MapOptions({ filterData, isFsa, setIsFsa, mapGenerated}: { filte
     }
     return (
         <div className='grid'>
-            <h2 className="text-[30px]">Options</h2>
-            <label>
+            <h2 className="text-[24px]"><b>Data options</b></h2>
+            <div className="grid ml-2">
+                <label className="text-[16px]">Selected feature</label>
                 <select 
                     id='selectedMapFilter'
                     name='mapFilter' 
                     className="p-1 my-2 border-2 border-solid text-center"
                     onChange={onSelectChange}
                 >
-                    <option value="">Select a map filter option...</option>
                     <option value="dailyServiceUsers">Daily service users</option>
                 </select>
-                <br/>
-            </label>
+            </div> 
+            
         </div>
     )
 }

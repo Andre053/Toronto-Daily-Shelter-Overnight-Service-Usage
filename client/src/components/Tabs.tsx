@@ -3,6 +3,7 @@ import { GeoData } from "@/types/Data";
 import { GeoMap } from "./Map";
 import { useContext, useState } from "react";
 import { TabContext } from "./Explore";
+import { LineChart } from "./LineChart";
 
 function TabPanal({value, idx, children}: {value: string, idx: string, children: React.ReactNode}) {
     const active = value === idx
@@ -18,14 +19,12 @@ type Props = {
     width: number;
     height: number;
     geoData: GeoData;
-    isFsa: any;
     setSelectedArea: any;
-    setMapGenerated: any;
     filterData: any;
     setFilterData: any;
 }
 
-export function VisualizationTabs({width, height, geoData, filterData, setFilterData, isFsa, setSelectedArea, setMapGenerated}: Props) {
+export function VisualizationTabs({width, height, geoData, filterData, setFilterData, setSelectedArea}: Props) {
     const {selectedTab, setSelectedTab} = useContext(TabContext); // TODO: May be a better way
 
     const handleChange = (e: any, v: any) => {
@@ -65,13 +64,12 @@ export function VisualizationTabs({width, height, geoData, filterData, setFilter
                     height={height} 
                     geoData={geoData} 
                     filterData={filterData} 
-                    setFilterData={setFilterData} isFsa={isFsa} 
+                    setFilterData={setFilterData} 
                     setSelectedArea={setSelectedArea} 
-                    setMapGenerated={setMapGenerated}
                 />
             </TabPanal>
             <TabPanal value={selectedTab} idx='tab-line'>
-                <p></p>
+                <LineChart allData={filterData} width={width} height={height}/>
             </TabPanal>
         </>
     )

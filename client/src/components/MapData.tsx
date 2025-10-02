@@ -1,5 +1,6 @@
 import { useEffect, useState, useContext } from "react"
 import { ThemeContext } from "@emotion/react"
+import { ServiceUserDataAll } from "@/types/Data"
 
 type dataStats = {
     totalAvgServiceUsers: string;
@@ -7,15 +8,18 @@ type dataStats = {
     highestAvgServiceUsers: string;
 }
 
+type Props = {
+    filterData: ServiceUserDataAll | null;
+    area: string;
+}
+
 // TODO: Handle when FSA has no data
-export function MapData({filterData, area, isFsa}: {filterData: any, area: string, isFsa: any}) {
+export function MapData({filterData, area}: Props) {
     const [areaData, setAreaData] = useState<any>(null)
     const [selectedInfoOption, setSelectedInfoOption] = useState('active_orgs')
     const [selectedInfoList, setSelectedInfoList] = useState([])
 
     const [filterDataStats, setFilterDataStats] = useState<dataStats | null>(null)
-
-    const currentTab = useContext(ThemeContext) as string // TODO: May be a better way
 
     useEffect(() => {
         // once filter data is set
@@ -49,13 +53,15 @@ export function MapData({filterData, area, isFsa}: {filterData: any, area: strin
         if (!area) return;
         setAreaData(null); // clear set area data
 
-        const url = isFsa ? `http://localhost:8080/data/fsa/${area}` : `http://localhost:8080/data/nb/${area}`
+        const url = `http://localhost:8080/data/fsa/${area}`
 
         const getData: any = async () => {
             await fetch(url)
                 .then((res) => res.json())
                 .then((servData) => {
-                    setAreaData(servData.data)
+                    if (servData.message == 'Successful FSA data request')
+                        setAreaData(servData.data)
+                    else setAreaData(null)
                 })
         }
         getData()
@@ -74,7 +80,7 @@ export function MapData({filterData, area, isFsa}: {filterData: any, area: strin
     return (
         <div className="grid">
             <h2 className="text-[24px] font-bold">Stats and information</h2>
-            <h2 className="text-[16px] font-bold">Total</h2>
+            <h2 className="text-[16px] font-bold">General statistics</h2>
             {filterDataStats && (
                 <>
                     <ul className='list-disc ml-5'>
@@ -86,8 +92,8 @@ export function MapData({filterData, area, isFsa}: {filterData: any, area: strin
             <h2 className="text-[16px] font-bold">Area</h2>
             {area.length > 1 && (
                 <>
-                    <h2 className='text-[16px]'>{isFsa ? "FSA" : "Neighbourhood"} selected: {area}</h2>
-                    {areaData && filterDataStats && (
+                    <h2 className='text-[16px]'>FSA selected: {area}</h2>
+                    {areaData && filterData && filterDataStats && (
                             <ul className='list-disc ml-5'>
                                 <li>{Math.round(filterData[area]['total_mean'])} average service users per day</li>
                                 <li>{areaData['active_orgs_count']} active organization</li>
@@ -98,7 +104,7 @@ export function MapData({filterData, area, isFsa}: {filterData: any, area: strin
                     <select 
                         id="selectedInfo"
                         name="selectedInfo" 
-                        className="p-1 border-black border-2"
+                        className="p-1 border-black border-2 mt-2 mb-1"
                         onChange={onChange}
                     >
                         <option value="active_orgs">Active organizations</option>
@@ -106,8 +112,8 @@ export function MapData({filterData, area, isFsa}: {filterData: any, area: strin
                         <option value="service_types">Active service types</option>
                         <option value="shelters">Active shelters</option>
                     </select>
-                    {!areaData && <p>Loading data...</p>}
-                    {areaData && (
+                    {!areaData && <p className="mt-1">No data for this area</p>}
+                    {areaData && filterData && (
                         <>
                             <ul className='list-disc ml-5'>
                             {selectedInfoList.map((v, i) => {
@@ -122,7 +128,7 @@ export function MapData({filterData, area, isFsa}: {filterData: any, area: strin
                 </>
             )}
             {area.length === 0 && (
-                <p>Select {isFsa ? "an FSA" : "a neighbourhood"} on the map to view stats...</p>
+                <p>Select an FSA on the map to view stats...</p>
             )}
         </div>
     )

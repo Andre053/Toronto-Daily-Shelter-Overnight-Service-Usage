@@ -35,21 +35,18 @@ type GeoMapProps = {
     width: number;
     height: number;
     geoData: GeoData;
-    isFsa: any;
     setSelectedArea: any;
-    setMapGenerated: any;
     filterData: any;
     setFilterData: any;
 }
 
-export function GeoMap({ width, height, geoData, filterData, setFilterData, isFsa, setSelectedArea, setMapGenerated}: GeoMapProps) {
+export function GeoMap({ width, height, geoData, filterData, setFilterData, setSelectedArea}: GeoMapProps) {
     const featureCollection: FeatureCollection = geoData.featureCollection
     
     const [zoomTransform, setZoomTransform] = useState(null);
-    
         
     const projection = d3.geoMercator()
-        .fitSize([width/2.5, height/2.5], featureCollection);
+        .fitSize([width/1.75, height/2.25], featureCollection);
 
     const geoGenerator = geoPath().projection(projection);
 
@@ -61,21 +58,20 @@ export function GeoMap({ width, height, geoData, filterData, setFilterData, isFs
         .on("zoom", (e) => { 
             setZoomTransform(e.transform)
         });
-
-    const mouseOver = (e: any) => {
+    const mouseOverPath = (e: any) => {
         d3.selectAll('path')
             .transition()
             .duration(200)
             .style('opacity', .5)
-
         d3.select(e.target)
             .transition()
             .duration(200)
             .style('opacity', 0.8)
             .style('stroke', 'black')
+        d3.select('#tooltip-div')
+            .text(e.target.attributes[0].value)
     };
-
-    const mouseLeave = (e: any) => {
+    const mouseLeavePath = (e: any) => {
         d3.selectAll('path')
             .transition()
             .duration(200)
@@ -84,67 +80,94 @@ export function GeoMap({ width, height, geoData, filterData, setFilterData, isFs
             .transition()
             .duration(200)
     };
-
-    const mouseClick = (e: any) => {
-        const area = isFsa ? e.target.attributes[0].value : e.target.attributes[0].value
+    const mouseClickPath = (e: any) => {
+        const area = e.target.attributes[0].value
         setSelectedArea(area)
 
         // TODO: Keep the target selected on the map once clicked, until a new one is clicked
         // if opacity is 1, leave it 
         d3.select(e.target)
-            .style('opacity', 1)
+            .transition()
+            .duration(200)
+            .style('opacity', .6)
+            .attr('fill', 'green') // TODO: remove colour and ID, set to old colour
+            .attr('id', 'fsa-selected') // sets to selected
+    };
+    const mouseOutPath = (e: any) => {
+        d3.select('path')
+            .style('opacity', 0.2)
             .style('stroke', 'black')
     };
-
+    const mouseOverG = (e: any) => {
+        d3.select('#tooltip-div')
+            .style('visibility', 'visible');
+    };
+    const mouseMoveG = (e: any) => {
+        d3.select('#tooltip-div')
+            .style('top', (e.clientY-20)+'px') // get position on entire page
+            .style('left', (e.clientX+5)+'px');
+    };
+    const mouseOutG = (e: any) => {
+        d3.select('#tooltip-div')
+            .style('visibility', 'hidden');
+    };
     useEffect(() => {
-        if (!geoData) return;
+        console.log('[Map.tsx] useEffect called with width', width, 'height', height)
+        if (!geoData || !width || !height) return;
         
-        const svg = d3.select(svgRef.current);
-        const g = d3.select(gRef.current);
+        const svg = d3.select(svgRef.current)
+            .style('position', 'relative');
+        const g = d3.select(gRef.current)
+            .attr('id', 'map-group')
+            .style('position', 'relative')
+            .style('visibility', 'hidden');
 
-        g.selectAll('*').remove(); // remove all path elements when geodata changed
-
-        // prevent wheel from scrolling the page when on SVG element
         svg.node()?.addEventListener('wheel', (e) => {
             e.preventDefault()
         }, { passive: false });
 
         svg
-            .attr('width', width/2)
+            .attr('width', width/1.5)
             .attr('height', height/2)
             .call(zoom);
-        
-        if (isFsa) {
-            g.selectAll('path')
-                .data(featureCollection.features)
-                .enter()
-                .append('path')
-                    .attr('key', (d) => d.properties?.CFSAUID)
-                    .attr('d', geoGenerator)
-                    .attr('fill', 'green')
-                    .on('mouseover', mouseOver)
-                    .on('mouseleave', mouseLeave)
-                    .on('click', mouseClick);
-            setMapGenerated(true) // supposed to trigger the colouring of the elements
-        } else {
-            // use to add an additional layer
-            g.selectAll('path')
-                .data(featureCollection.features)
-                .enter()
-                .append('path')
-                    .attr('key', (d) => d.properties?.AREA_NAME)
-                    .attr('d', geoGenerator)
-                    .on('mouseover', mouseOver)
-                    .on('mouseleave', mouseLeave)
-                    .on('click', mouseClick);
-        }
-        if (!filterData) getFilterData('serviceUsers', setFilterData)
-     }, [geoData, isFsa, width, height]);
+
+        // add the tooltip div 
+        // where the div is appended matters
+        // the SVG element does not know how to handle a div
+        d3.select('body') 
+            .append('div')
+            .attr('id', 'tooltip-div')
+            .style('position', 'absolute')
+            .style('visibility', 'hidden')
+            .style('font-weight', 'bold')
+            .style('text-color', 'white')
+            .text('test')
+
+        g.selectAll('*').remove(); // remove all path elements when geodata changed
+
+        // add tooltip functionality
+        g.on('mouseover', mouseOverG)
+            .on('mousemove', mouseMoveG)
+            .on('mouseout', mouseOutG);
+
+        g.selectAll('path')
+            .data(featureCollection.features)
+            .enter()
+            .append('path')
+                .attr('key', (d) => d.properties?.CFSAUID)
+                .attr('d', geoGenerator)
+                .attr('fill', 'gray') // have original map be white? gray?
+                .on('mouseover', mouseOverPath)
+                .on('mouseleave', mouseLeavePath)
+                .on('click', mouseClickPath)
+                .on('mouseout', mouseOutPath)
+
+        if (!filterData) getFilterData('serviceUsers', setFilterData); // should trigger the recolour
+     }, [geoData, width, height]);
 
      useEffect(() => {
         const g = d3.select(gRef.current);
         g.attr('transform', zoomTransform);
-
      }, [zoomTransform])
 
     // TODO: Improve spacing of info elements
