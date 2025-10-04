@@ -69,7 +69,7 @@ export function VisualizationTabs({width, height, geoData, filterData, setFilter
                 />
             </TabPanal>
             <TabPanal value={selectedTab} idx='tab-line'>
-                <LineChart allData={filterData} width={width} height={height}/>
+                <LineChart width={width-100} height={height-300}/>
             </TabPanal>
         </>
     )

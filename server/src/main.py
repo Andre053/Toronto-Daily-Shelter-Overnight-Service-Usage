@@ -265,6 +265,145 @@ def analyze_filter_type(df, filter):
         return analyze_daily_service_user_count(df)
     else: 
         return []
+    
+
+def data_by_feature(df, stat, feat_id, feat_name):
+    """
+    data: {
+        start_date: string,
+        end_date: string,
+        data_by_shelter: {
+            name+shelter_id: [] // with zeros for empty
+        }
+        want active user count, occupied beds/rooms, unoccupied beds/rooms
+    }
+    """
+    dates = df['OCCUPANCY_DATE'].unique()
+    data = {
+        'statName': stat,
+        'startDate': dates[0],
+        'endDate': dates[-1],
+        'dataByFeature': {}
+    }
+    print("Running data for", feat_name, stat)
+    feature_ids = df[feat_id].unique()
+    feature_pairs = [] # fill with shelter names
+    for id in feature_ids:
+        df_feat_id = df[df[feat_id] == id]
+        name = '/'.join([n.replace(" ", "_") for n in df_feat_id[feat_name].unique()])
+        name = name.replace("'", "").replace(",", "").replace('_-_', '_').lower() # cleaning names
+        feature_pairs.append((name, id))
+        data['dataByFeature'][f'{name}_{id}'] = []
+
+    # TODO: Looping is extremely slow, use vectorization
+    for date in dates:
+        df_date = df[df['OCCUPANCY_DATE'] == date] # would a group by date then sum be better?
+        for pair in feature_pairs:
+            name = pair[0]
+            id = pair[1]
+            records = df_date[df_date[feat_id] == id]
+            if records.empty: total = 0
+            else: total = int(records[stat].sum())
+            data['dataByFeature'][f'{name}_{id}'].append(total)
+    print("Done running data by shelter")
+            
+    return data
+
+
+
+def process_data_for_analysis(df):
+    # given the complete dataset, prep it for analysis
+    # want by date
+    data = {}
+
+    # data ideas
+    # 1. Daily service users, average per
+    # 2. Daily shelters in use (IDs)
+    # 3. Daily organizations in use (IDs)
+    # 4. Daily total open beds, average per
+    # 5. Daily total open rooms, average per 
+    # 6. Group by overnight_service_type
+    # 7. Group by program
+    # 8. Group by organization
+
+    """
+    data = {
+        occupancy_date: {
+            active_shelters: num;
+            active_organizations: num;
+            active_programs: num;
+
+            service_users_by_shelter:
+                "shelter id" + "shelter name": number -> []
+        }
+    }
+    """
+    #'OCCUPANCY_DATE', 'ORGANIZATION_NAME', 'ORGANIZATION_ID', 'SHELTER_ID', 'SHELTER_GROUP', 'LOCATION_NAME', 'LOCATION_ID', 'LOCATION_ADDRESS', 
+    #'LOCATION_POSTAL_CODE', 'PROGRAM_ID', 'PROGRAM_NAME', 'PROGRAM_MODEL', 'SECTOR', 'OVERNIGHT_SERVICE_TYPE', 'SERVICE_USER_COUNT', 
+    #'CAPACITY_ACTUAL_BED', 'CAPACITY_FUNDING_BED', 'OCCUPIED_BEDS', 'UNOCCUPIED_BEDS', 'UNAVAILABLE_BEDS', 'OCCUPIED_ROOMS', 'UNOCCUPIED_ROOMS'
+    for date in df['OCCUPANCY_DATE'].unique(): 
+        df_data = df[df['OCCUPANCY_DATE'] == date] # all entries with service_user_count across the city
+
+        data[date] = {
+            'active_shelters_count': None,
+            'active_programs_count': None,
+            'active_organizations_count': None,
+            'service_users_by_shelters': {},
+            'service_users_by_orgs': {},
+            'service_users_by_programs': {},
+            'occupied_beds_by_shelters': {},
+            'occupied_beds_by_orgs': {},
+            'occupied_beds_by_programs': {},
+            'occupied_rooms_by_shelters': {},
+            'occupied_rooms_by_orgs': {},
+            'occupied_rooms_by_programs': {},
+            'unoccupied_beds_by_shelters': {},
+            'unoccupied_beds_by_orgs': {},
+            'unoccupied_beds_by_programs': {},
+            'unoccupied_rooms_by_shelters': {},
+            'unoccupied_rooms_by_orgs': {},
+            'unoccupied_rooms_by_programs': {},
+        }
+        active_shelters = set_counts('SHELTER_ID', 'shelters', data, df_data, date)
+        active_orgs = set_counts('ORGANIZATION_ID', 'orgs', data, df_data, date)
+        active_programs = set_counts('PROGRAM_ID', 'programs', data, df_data, date)
+
+        set_grouping('SERVICE_USER_COUNT', 'SHELTER_ID', 'SHELTER_GROUP', 'shelters', 'service_users', active_shelters, data, df_data, date)
+        set_grouping('SERVICE_USER_COUNT', 'ORGANIZATION_ID', 'ORGANIZATION_NAME', 'orgs', 'service_users', active_orgs, data, df_data, date)
+        set_grouping('SERVICE_USER_COUNT', 'PROGRAM_ID', 'PROGRAM_NAME', 'programs', 'service_users', active_programs, data, df_data, date)
+
+        set_grouping('OCCUPIED_BEDS', 'SHELTER_ID', 'SHELTER_GROUP', 'shelters', 'occupied_beds', active_shelters, data, df_data, date)
+        set_grouping('OCCUPIED_BEDS', 'ORGANIZATION_ID', 'ORGANIZATION_NAME', 'orgs', 'occupied_beds', active_orgs, data, df_data, date)
+        set_grouping('OCCUPIED_BEDS', 'PROGRAM_ID', 'PROGRAM_NAME', 'programs', 'occupied_beds', active_programs, data, df_data, date)
+
+        set_grouping('OCCUPIED_ROOMS', 'SHELTER_ID', 'SHELTER_GROUP', 'shelters', 'occupied_rooms', active_shelters, data, df_data, date)
+        set_grouping('OCCUPIED_ROOMS', 'ORGANIZATION_ID', 'ORGANIZATION_NAME', 'orgs', 'occupied_rooms', active_orgs, data, df_data, date)
+        set_grouping('OCCUPIED_ROOMS', 'PROGRAM_ID', 'PROGRAM_NAME', 'programs', 'occupied_rooms', active_programs, data, df_data, date)
+
+        set_grouping('UNOCCUPIED_BEDS', 'SHELTER_ID', 'SHELTER_GROUP', 'shelters', 'unoccupied_beds', active_shelters, data, df_data, date)
+        set_grouping('UNOCCUPIED_BEDS', 'ORGANIZATION_ID', 'ORGANIZATION_NAME', 'orgs', 'unoccupied_beds', active_orgs, data, df_data, date)
+        set_grouping('UNOCCUPIED_BEDS', 'PROGRAM_ID', 'PROGRAM_NAME', 'programs', 'unoccupied_beds', active_programs, data, df_data, date)
+
+        set_grouping('UNOCCUPIED_ROOMS', 'SHELTER_ID', 'SHELTER_GROUP', 'shelters', 'unoccupied_rooms', active_shelters, data, df_data, date)
+        set_grouping('UNOCCUPIED_ROOMS', 'ORGANIZATION_ID', 'ORGANIZATION_NAME', 'orgs', 'unoccupied_rooms', active_orgs, data, df_data, date)
+        set_grouping('UNOCCUPIED_ROOMS', 'PROGRAM_ID', 'PROGRAM_NAME', 'programs', 'unoccupied_rooms', active_programs, data, df_data, date)
+
+        # by postal code
+
+    return data
+
+def set_counts(id_key, data_group_key, data, df, date):
+    active_ids = df[id_key].unique()
+    data[date][f'active_{data_group_key}_count'] = len(active_ids)
+    return active_ids
+
+def set_grouping(stat, id_key, name_key, data_group_key, data_stat_key, active_ids, data, df, date):
+    for id in active_ids:
+        df_filtered = df[df[id_key] == id]
+        name = '/'.join([n for n in df_filtered[name_key].unique()])
+
+        data[date][f'{data_stat_key}_by_{data_group_key}'][f'{name} ({id})'] = int(df_filtered[stat].sum())
+        
 
 @app.get("/")
 async def root():
@@ -282,6 +421,25 @@ async def get_geo_data(geotype: str, end: str = '2025-09-01', start: str = '2025
     payload = {
         'message': 'GeoJson data retrieved',
         'data': geojson
+    }
+    return payload
+
+# TODO: Optimize with vectorization, built-in pandas functions
+@app.get("/data/all/{feature}/{stat}")
+async def get_analyze_data(feature: str, stat: str):
+    stat_options = ['SERVICE_USER_COUNT', 'OCCUPIED_BEDS', 'OCCUPIED_ROOMS', 'UNOCCUPIED_BEDS', 'UNOCCUPIED_ROOMS']
+    if stat not in stat_options: return {'message': 'Fail with wrong feature/stat', 'data': {}}
+
+    df = get_data([])
+    data = None
+    if feature == 'shelters':
+        feature_id = 'SHELTER_ID'
+        feature_name = 'SHELTER_GROUP'
+        data = data_by_feature(df, stat, feature_id, feature_name)
+    #processed_data = process_data_for_analysis(data)
+    payload = {
+        'message': 'Successful retrieval of feature data',
+        'data': data
     }
     return payload
 

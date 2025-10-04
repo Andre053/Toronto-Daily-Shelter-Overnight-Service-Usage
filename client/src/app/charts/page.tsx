@@ -1,3 +1,4 @@
+import { LineChart } from "@/components/LineChart";
 import { fetchDataBeforeLoad } from "../utils";
 import { ServerData } from "@/types/Data";
 
@@ -10,10 +11,10 @@ async function getChartData() {
 }
 
 export default async function Home() {
-  const { fsaRes } = await getChartData()
 
   return (
     <div className="min-h-screen flex flex-col items-center">
+      <LineChart width={1000} height={500}/>
     </div>
   );
 }

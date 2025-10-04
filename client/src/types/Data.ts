@@ -1,5 +1,21 @@
 import { FeatureCollection } from "geojson";
 
+export type DataPoint = {
+    value: number;
+    date: Date;
+}
+
+export type DataByFeaturePayload = {
+  statName: string;
+  startDate: string;
+  endDate: string;
+  dataByFeature: DataByFeature;
+}
+
+export type DataByFeature = {
+  [key: string]: number[];
+}
+
 export type AreaData = {
   [key: string]: string | string[] | any
 }

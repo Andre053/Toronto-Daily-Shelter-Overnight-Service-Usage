@@ -117,6 +117,7 @@ export function GeoMap({ width, height, geoData, filterData, setFilterData, setS
         
         const svg = d3.select(svgRef.current)
             .style('position', 'relative');
+            
         const g = d3.select(gRef.current)
             .attr('id', 'map-group')
             .style('position', 'relative')
