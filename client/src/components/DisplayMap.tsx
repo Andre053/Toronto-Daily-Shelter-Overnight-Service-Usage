@@ -48,12 +48,6 @@ const setPathColour = (statData: StatByFsa) => {
         })
     g.style('visibility', 'visible') // make visible once recoloured
 }
-
-
-const colorMap = (max: number, min: number) => {
-
-}
-
 const computeMonthlyStats = (mapData: DataByMonth[]): Stats => {
     const stats: Stats = {
         'meanMonthlyUsers': 0,
@@ -157,6 +151,14 @@ const computeFsaStats = (mapData: DataByMonth[], fsa: string): Stats => {
     return stats;
 }
 
+const getHeatmapData = async (stat: string, setHeatmapData: any) => {
+    await fetch(`http://localhost:8080/data/by_fsa/${stat}`)
+        .then((res) => res.json())
+        .then((data) => {
+            setHeatmapData(data.data)
+        })
+}
+
 type PropsSettings = {
     selectedArea: string | null;
     mapData: DataByMonth[];
@@ -170,10 +172,9 @@ export function MapSettings({selectedArea, mapData}: PropsSettings) {
     const [fsaStats, setFsaStats] = useState<Stats | null>(null);
 
     const onChange = (e: any) => {
-        // a new drop-down option selected
         setSelectedHeatmapOption(e.target.value)
+        getHeatmapData(e.target.value, setHeatmapData)
     }
-
     useEffect(() => {
         setMonthlyStats(computeMonthlyStats(mapData))
     }, [mapData])
@@ -199,24 +200,14 @@ export function MapSettings({selectedArea, mapData}: PropsSettings) {
         }
         getData()
     }, [selectedArea])
-
-    useEffect(() => {
-        const getData = async () => {
-            await fetch(`http://localhost:8080/data/by_fsa/${selectedHeatmapOption}`)
-                .then((res) => res.json())
-                .then((data) => {
-                    setHeatmapData(data.data)
-                })
-        }
-        getData()
-
-    }, [selectedHeatmapOption])   
     
     useEffect(() => {
         if (heatmapData) {
             setPathColour(heatmapData)
+        } else {
+            getHeatmapData(selectedHeatmapOption, setHeatmapData)
         }
-    })
+    }, [heatmapData])
     return (
         <>
             <h1 className="text-3xl">Info and options</h1>
@@ -224,7 +215,7 @@ export function MapSettings({selectedArea, mapData}: PropsSettings) {
             <select 
                 id="selected-info"
                 name="selectedInfo" 
-                className="p-1 border-black border-2 mt-2 mb-1"
+                className="p-1 border-black border-2"
                 onChange={onChange}
             >
                 <option value="SERVICE_USER_COUNT">Service users</option>
@@ -238,8 +229,8 @@ export function MapSettings({selectedArea, mapData}: PropsSettings) {
             </select>
             {monthlyStats && (
                 <>
-                    <h1 className="text-2xl">Map statistics</h1>
-                    <ul className='list-disc mx-10 text-left'>
+                    <h1 className="text-2xl p-2">Map statistics</h1>
+                    <ul className='list-disc text-left'>
                         <li>There are {monthlyStats.meanMonthlyUsers} average monthly service users across the city</li>
                         <li>Every month there are {monthlyStats.meanMonthlyShelters} active shelters, {monthlyStats.meanMonthlyOrgs} active organizations,<br/> and {monthlyStats.meanMonthlyPrograms} active programs on average</li>
                         <li>Programs providing beds have {monthlyStats.meanMonthlyOccupiedBeds} occupied, {monthlyStats.meanMonthlyUnoccupiedBeds} unoccupied on average</li>
@@ -249,11 +240,11 @@ export function MapSettings({selectedArea, mapData}: PropsSettings) {
                 </>
                 
             )}
-            <h1 className="text-xl">{selectedArea ? `FSA selected: ${selectedArea}` : 'No FSA selected'}</h1>
+            <h1 className="text-xl p-2">{selectedArea ? `FSA selected: ${selectedArea}` : 'No FSA selected'}</h1>
             <div className="">
                 {selectedArea ? ((selectedAreaData && fsaStats) ? (Object.keys(selectedAreaData).length !== 0) ? (
                     <>
-                        <ul className='list-disc mx-10 text-left'>
+                        <ul className='list-disc text-left'>
                             {fsaStats.meanMonthlyUsers !== 0 && <li>{fsaStats.meanMonthlyUsers} average service users per month</li>}
                             {fsaStats.meanMonthlyOccupiedBeds !== 0 &&<li>{fsaStats.meanMonthlyOccupiedBeds} average occupied beds per month</li>}
                             {fsaStats.meanMonthlyUnoccupiedBeds !== 0 &&<li>{fsaStats.meanMonthlyUnoccupiedBeds} average unoccupied beds per month</li>}
@@ -312,7 +303,7 @@ export function MapFsa({width, height, geoData, setSelectedArea}: PropsMap) {
         d3.selectAll('path')
             .transition()
             .duration(200)
-            .style('opacity', .6)
+            .style('opacity', .5)
         d3.select(e.target)
             .transition()
             .duration(200)
@@ -326,7 +317,7 @@ export function MapFsa({width, height, geoData, setSelectedArea}: PropsMap) {
         d3.select(e.target)
             .transition()
             .duration(200)
-            .style('opacity', .6)
+            .style('opacity', .5)
             .attr('fill', 'green') // TODO: remove colour and ID, set to old colour
             .attr('id', 'fsa-selected') // sets to selected
     };

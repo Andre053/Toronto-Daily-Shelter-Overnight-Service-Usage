@@ -44,15 +44,15 @@ export function Display() {
             {geoData && 
                 <div className="text-center">
                     <MapFsa
-                        width={800}
-                        height={600}
+                        width={1000}
+                        height={800}
                         geoData={geoData}
                         setSelectedArea={setSelectedArea}
                     />
                 </div>
             }
             {dataByMonth && 
-                <div className="text-center">
+                <div className="text-left">
                     <MapSettings
                         selectedArea={selectedArea}
                         mapData={dataByMonth}

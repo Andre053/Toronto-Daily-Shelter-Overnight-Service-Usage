@@ -11,7 +11,7 @@ const LinkItem = ({children, href}: {children: React.ReactNode; href: string; })
 )
 
 export const NavBar = () => (
-    <nav className="sticky top-0 w-full flex items-center justify-between bg-blue-400 text-[26px] border-b-3">
+    <nav className="sticky top-0 w-full flex items-center justify-between bg-indigo-800 p-1 text-[26px] text-white font-bold border-b-7 border-indigo-900">
         <Link href="/" className="ml-5">
             LOGO HERE
         </Link>
@@ -20,11 +20,8 @@ export const NavBar = () => (
                 Story
             </LinkItem>  
             <LinkItem href="/display">
-                Display
-            </LinkItem>  
-            <LinkItem href="/explore">
                 Explore
-            </LinkItem> 
+            </LinkItem>  
             <LinkItem href="/charts">
                 Charts
             </LinkItem>   
