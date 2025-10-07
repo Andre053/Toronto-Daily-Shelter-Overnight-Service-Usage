@@ -61,7 +61,15 @@ type Props = {
     height: number;
 }
 
-export function LineChart({width, height }: Props) {
+// TODO: Line chart should be data agnostic
+// TODO: Essential to have chart options for the line chart
+// TODO: Visual improvements
+// Line colour, grid lines, axis names, etc.
+export function LineChart() {
+    const width = 500;
+    const height = 300;
+
+
     const svgRef = useRef<SVGSVGElement | null>(null);
 
     const [data, setData] = useState<DataByFeature | null>(null)
@@ -158,7 +166,7 @@ export function LineChart({width, height }: Props) {
             .datum(chartData) // binds data to a single element, no need to enter
             .attr('fill', 'none') // have original map be white? gray?
             .attr('stroke', 'steelblue')
-            .attr('stroke-width', 5)
+            .attr('stroke-width', 2)
             .attr('d', lineVal)
 
         // circle element needs to be part of gBody
@@ -169,7 +177,8 @@ export function LineChart({width, height }: Props) {
             .attr('opacity', 0.7)
             .style('pointer-events', 'none')
 
-        const listeningRect = gBody.append('rect') // vertical rect to show the value when hovering over
+        // hidden rect on the chart to show the value when hovering over
+        const listeningRect = gBody.append('rect') 
             .attr('width', w)
             .attr('height', h)
             .attr('opacity', 0)
@@ -178,10 +187,10 @@ export function LineChart({width, height }: Props) {
         listeningRect.on('mousemove', (e: any) => {
             const [xCoordinate] = d3.pointer(e, this);
             const bisectDate = d3.bisector((d: DataPoint) => d.date).left
-            const x0 = xScale.invert(xCoordinate) // data value where the mouse is
+            const x0: Date = xScale.invert(xCoordinate) // data value where the mouse is
             const i = bisectDate(chartData, x0, 1); // bisect to get the date index
-            const d0 = chartData[i-1] // find the two closest data points and select them, then calculate which is closer
-            const d1 = chartData[i]
+            const d0: DataPoint = chartData[i-1] // find the two closest data points and select them, then calculate which is closer
+            const d1: DataPoint = chartData[i]
             const d = x0 - d0.date > d1.date - x0 ? d1 : d0; // find the closest data point
             const xPos = xScale(d.date); // these are diving the wrong coordinates
             const yPos = yScale(d.value);

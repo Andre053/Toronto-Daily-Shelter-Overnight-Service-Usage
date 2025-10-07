@@ -1,6 +1,6 @@
 import { useEffect, useState, useContext } from "react"
 import { ThemeContext } from "@emotion/react"
-import { ServiceUserDataAll } from "@/types/Data"
+import { DataByMonth, ServiceUserDataAll } from "@/types/Data"
 
 type dataStats = {
     totalAvgServiceUsers: string;
@@ -11,6 +11,31 @@ type dataStats = {
 type Props = {
     filterData: ServiceUserDataAll | null;
     area: string;
+}
+
+type Props2 = {
+    monthlyData: DataByMonth;
+    areaSelected: string;
+}
+
+export function MapData2({monthlyData, areaSelected}: Props2) {
+    const [areaData, setAreaData] = useState<any>(null)
+    
+    useEffect(() => {
+        if (!monthlyData) return; 
+
+        // set the stats to show
+        for (const e in monthlyData) {
+            console.log({e})
+        }
+
+    })
+    
+    return (
+        <>
+            Test
+        </>
+    )
 }
 
 // TODO: Handle when FSA has no data
@@ -61,7 +86,7 @@ export function MapData({filterData, area}: Props) {
                 .then((servData) => {
                     if (servData.message == 'Successful FSA data request')
                         setAreaData(servData.data)
-                    else setAreaData(null)
+                    else setAreaData(null) // TODO: This should handle bad requests
                 })
         }
         getData()

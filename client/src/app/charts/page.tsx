@@ -1,4 +1,4 @@
-import { LineChart } from "@/components/LineChart";
+import { ChartItem } from "@/components/ChartItem";
 import { fetchDataBeforeLoad } from "../utils";
 import { ServerData } from "@/types/Data";
 
@@ -10,11 +10,12 @@ async function getChartData() {
   return { fsaRes }
 }
 
+// TODO: Each chart should have chart options, similar to explore page layout?
 export default async function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center">
-      <LineChart width={1000} height={500}/>
+      <ChartItem/>
     </div>
   );
 }

@@ -19,6 +19,9 @@ export const NavBar = () => (
             <LinkItem href="/story">
                 Story
             </LinkItem>  
+            <LinkItem href="/display">
+                Display
+            </LinkItem>  
             <LinkItem href="/explore">
                 Explore
             </LinkItem> 

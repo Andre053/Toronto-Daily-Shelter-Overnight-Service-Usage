@@ -25,6 +25,7 @@ from datetime import datetime
 import pandas as pd
 import geojson, ijson
 import numpy as np
+from data_utilities import data_analysis
 
 JSON_BASE = {
     "type": "FeatureCollection",
@@ -113,7 +114,9 @@ def get_geojson_data(geotype):
         return json.load(f)
 
 def prep_data(df):
+    df['OCCUPANCY_DATE'] = pd.to_datetime(df['OCCUPANCY_DATE'])
     df['LOCATION_FSA_CODE'] = df['LOCATION_POSTAL_CODE'].apply(lambda x: x[:3] if pd.notnull(x) else "N/A")
+    df = df.fillna(0)
     return df
 
 def get_last_updated_date():
@@ -478,6 +481,106 @@ async def data_by_fsa(neighbourhood: str):
     print("Received neighbourhood:", neighbourhood)
 
     return {'message': 'No data available for neighbourhoods', 'data': {}}
+
+MONTHS = {
+    1: 'JAN',
+    2: 'FEB',
+    3: 'MAR',
+    4: 'APR',
+    5: 'MAY',
+    6: 'JUN',
+    7: 'JUL',
+    8: 'AUG',
+    9: 'SEP',
+    10: 'OCT',
+    11: 'NOV',
+    12: 'DEC',
+}
+
+'''
+['M9W' 'M5S' 'M2J' 'M6R' 'M6H' 'M6G' 'M1P' 'M1G' 'M3M' 'M1B' 'M1E' 'M5V'
+ 'M1H' 'M5A' 'N/A' 'M1M' 'M6N' 'M5C' 'L4L' 'M3L' 'M5T' 'M5H' 'M6C' 'M8V'
+ 'M5B' 'M5R' 'M6K' 'M4C' 'M3B' 'M4X' 'M4Y' 'M6A' 'M5G' 'M1K' 'M2M' 'M1T'
+ 'M1R' 'M2H' 'M6E' 'M4K' 'M4W' 'M4M' 'M8Y' 'M9C' 'M6P' 'M3N' 'M9V' 'M4T'
+ 'M1L' 'M2N' 'M6J']
+
+grouped_month = df[['OCCUPANCY_DATE', 'SERVICE_USER_COUNT', 'CAPACITY_ACTUAL_BED', 'CAPACITY_FUNDING_BED', 'OCCUPIED_BEDS', 'UNOCCUPIED_BEDS', 'OCCUPIED_ROOMS', 'UNOCCUPIED_ROOMS', 'ORGANIZATION_ID', 'PROGRAM_ID', 'SHELTER_ID', 'LOCATION_ID']].groupby(df['OCCUPANCY_DATE'].dt.month).agg(
+        SERVICE_USER_COUNT_MEAN=pd.NamedAgg(column='SERVICE_USER_COUNT', aggfunc=lambda x: round(x.astype(float).mean(), 2)),
+        CAPACITY_ACTUAL_BED_MEAN=pd.NamedAgg(column='CAPACITY_ACTUAL_BED', aggfunc=lambda x: round(x.astype(float).mean(), 2)),
+        CAPACITY_FUNDING_BED_MEAN=pd.NamedAgg(column='CAPACITY_FUNDING_BED', aggfunc=lambda x: round(x.astype(float).mean(), 2)),
+        OCCUPIED_ROOMS_MEAN=pd.NamedAgg(column='OCCUPIED_ROOMS', aggfunc=lambda x: round(x.astype(float).mean(), 2)),
+        UNOCCUPIED_ROOMS_MEAN=pd.NamedAgg(column='UNOCCUPIED_ROOMS', aggfunc=lambda x: round(x.astype(float).mean(), 2)),
+        OCCUPIED_BEDS_MEAN=pd.NamedAgg(column='OCCUPIED_BEDS', aggfunc=lambda x: round(x.astype(float).mean(), 2)),
+        UNOCCUPIED_BEDS_MEAN=pd.NamedAgg(column='UNOCCUPIED_BEDS', aggfunc=lambda x: round(x.astype(float).mean(), 2)),
+        ORG_COUNT=pd.NamedAgg(column='ORGANIZATION_ID', aggfunc='nunique'),
+        PROGRAM_COUNT=pd.NamedAgg(column='PROGRAM_ID', aggfunc='nunique'),
+        SHELTER_COUNT=pd.NamedAgg(column='SHELTER_ID', aggfunc='nunique'),
+        LOCATION_COUNT=pd.NamedAgg(column='LOCATION_ID', aggfunc='nunique')
+    ).reset_index()
+    grouped_month.columns = ['OCCUPANCY_DATE', 'SERVICE_USER_COUNT_MEAN', 'CAPACITY_ACTUAL_BED', 'CAPACITY_FUNDING_BED', 'OCCUPIED_BEDS_MEAN', 'UNOCCUPIED_BEDS_MEAN', 'OCCUPIED_ROOMS_MEAN', 'UNOCCUPIED_ROOMS_MEAN', 'ORG_COUNT', 'PROGRAM_COUNT', 'SHELTER_COUNT', 'LOCATION_COUNT']
+'''
+
+def stat_by_fsa(df, stat):
+    # fsa by stat
+
+    data = {}
+    if stat in ['SERVICE_USER_COUNT', 'OCCUPIED_ROOMS', 'UNOCCUPIED_ROOMS', 'OCCUPIED_BEDS', 'UNOCCUPIED_BEDS']:
+        for fsa in df['LOCATION_FSA_CODE'].unique():
+            data[fsa] = round(float(df[df['LOCATION_FSA_CODE'] == fsa][stat].mean()), 1)
+    elif stat in ['PROGRAM_ID', 'ORGANIZATION_ID', 'SHELTER_GROUP']:
+        for fsa in df['LOCATION_FSA_CODE'].unique():
+            data[fsa] = df[df['LOCATION_FSA_CODE'] == fsa][stat].nunique()
+
+    return data
+
+@app.get('/data/by_fsa/{stat}')
+def get_stat_by_fsa(stat: str):
+    df = get_data([])
+
+    data = stat_by_fsa(df, stat)
+    payload = {
+        'message': 'Retrieved data by month',
+        'data': data
+    }
+    return payload
+        
+def data_by_month(df): 
+    grouped_fsa = df[['OCCUPANCY_DATE', 'LOCATION_FSA_CODE', 'SERVICE_USER_COUNT', 'CAPACITY_ACTUAL_BED', 'CAPACITY_FUNDING_BED', 'OCCUPIED_BEDS', 'UNOCCUPIED_BEDS', 'OCCUPIED_ROOMS', 'UNOCCUPIED_ROOMS', 'ORGANIZATION_ID', 'PROGRAM_ID', 'SHELTER_ID', 'LOCATION_ID']].groupby([df['OCCUPANCY_DATE'].dt.month, 'LOCATION_FSA_CODE']).agg(
+        SERVICE_USER_COUNT_MEAN=pd.NamedAgg(column='SERVICE_USER_COUNT', aggfunc=lambda x: round(x.astype(float).mean(), 2)),
+        CAPACITY_ACTUAL_BED_MEAN=pd.NamedAgg(column='CAPACITY_ACTUAL_BED', aggfunc=lambda x: round(x.astype(float).mean(), 2)),
+        CAPACITY_FUNDING_BED_MEAN=pd.NamedAgg(column='CAPACITY_FUNDING_BED', aggfunc=lambda x: round(x.astype(float).mean(), 2)),
+        OCCUPIED_ROOMS_MEAN=pd.NamedAgg(column='OCCUPIED_ROOMS', aggfunc=lambda x: round(x.astype(float).mean(), 2)),
+        UNOCCUPIED_ROOMS_MEAN=pd.NamedAgg(column='UNOCCUPIED_ROOMS', aggfunc=lambda x: round(x.astype(float).mean(), 2)),
+        OCCUPIED_BEDS_MEAN=pd.NamedAgg(column='OCCUPIED_BEDS', aggfunc=lambda x: round(x.astype(float).mean(), 2)),
+        UNOCCUPIED_BEDS_MEAN=pd.NamedAgg(column='UNOCCUPIED_BEDS', aggfunc=lambda x: round(x.astype(float).mean(), 2)),
+        ORG_COUNT=pd.NamedAgg(column='ORGANIZATION_ID', aggfunc='nunique'),
+        PROGRAM_COUNT=pd.NamedAgg(column='PROGRAM_ID', aggfunc='nunique'),
+        SHELTER_COUNT=pd.NamedAgg(column='SHELTER_ID', aggfunc='nunique'),
+        LOCATION_COUNT=pd.NamedAgg(column='LOCATION_ID', aggfunc='nunique')
+    ).reset_index()
+
+    grouped_fsa.columns = ['OCCUPANCY_DATE', 'LOCATION_FSA_CODE', 'SERVICE_USER_COUNT_MEAN', 'CAPACITY_ACTUAL_BED', 'CAPACITY_FUNDING_BED', 'OCCUPIED_BEDS_MEAN', 'UNOCCUPIED_BEDS_MEAN', 'OCCUPIED_ROOMS_MEAN', 'UNOCCUPIED_ROOMS_MEAN', 'ORG_COUNT', 'PROGRAM_COUNT', 'SHELTER_COUNT', 'LOCATION_COUNT']
+
+    data_json = []
+    for category, group in grouped_fsa.groupby('OCCUPANCY_DATE'):
+        sub_cat = group[['LOCATION_FSA_CODE', 'SERVICE_USER_COUNT_MEAN', 'CAPACITY_ACTUAL_BED', 'CAPACITY_FUNDING_BED', 'OCCUPIED_BEDS_MEAN', 'UNOCCUPIED_BEDS_MEAN', 'OCCUPIED_ROOMS_MEAN', 'UNOCCUPIED_ROOMS_MEAN', 'ORG_COUNT', 'PROGRAM_COUNT', 'SHELTER_COUNT', 'LOCATION_COUNT']].to_dict(orient='records')
+        data_json.append({
+            'month': MONTHS[category],
+            'data': sub_cat
+        })
+    return data_json
+
+@app.get('/data/by_month')
+async def test():
+    df = get_data([])
+
+    data = data_by_month(df)
+    payload = {
+        'message': 'Retrieved data by month',
+        'data': data
+    }
+    return payload
+
 
 if __name__ == '__main__':
     uvicorn.run('main:app', host='0.0.0.0', port=8080, reload=True) # run the server manually

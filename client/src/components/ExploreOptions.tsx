@@ -26,7 +26,7 @@ const setPathColour = (statName: string, maxVal: number, filterData: any) => {
     g.selectAll('path') // go through all paths and change the colour
         .classed('stroke-black', true)
         .attr('fill', (d: any) => {
-            const fsa: string = d.properties.CFSAUID
+            const fsa: string = d.properties.CFSAUID;
             const fsaData = filterData[fsa];
             if (fsaData) return getColour('yellow', 'red', fsaData[statName], maxVal);
             //console.log('Could not find', fsa, {filterData})

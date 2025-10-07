@@ -2,7 +2,7 @@
 
 import { useEffect, useState, createContext, Suspense } from "react";
 import '../app/globals.css';
-import { GeoData } from "@/types/Data";
+import { DataByMonth, GeoData, ServerData } from "@/types/Data";
 import { GeoMap } from "./Map"; 
 import dayjs from "dayjs";
 import { MapOptions } from "./ExploreOptions";
@@ -24,6 +24,26 @@ type Props = {
 
 export const TabContext = createContext<any>(null);
 
+
+/**
+ * DATA BY MONTH
+ * Retrieved from: /data/by_month
+ * 
+ */
+export const getMonthData = async (setData: any) => {
+    const url = `http://localhost:8080/data/by_month`
+
+    fetch(url)
+        .then((res) => res.json())
+        .then((data: ServerData) => {
+            console.log(`Monthly data: ${data.message}`)
+            const monthlyData: DataByMonth = data.data
+            console.log({monthlyData})
+            setData(monthlyData)
+        })
+}
+
+
 export function Map({ initialGeoData }: Props) {
 
     const [geoData, setGeoData] = useState(initialGeoData)
@@ -33,7 +53,7 @@ export function Map({ initialGeoData }: Props) {
     const [endDate, setEndDate] = useState(dayjs());
     const [selectedArea, setSelectedArea] = useState('');
     const [filterData, setFilterData] = useState<ServiceUserDataAll | null>(null); // data for colouring the map
-    
+    const [monthlyData, setMonthlyData] = useState<DataByMonth | null>(null)
 
     const [width, setWidth] = useState(0)
     const [height, setHeight] = useState(0)
@@ -44,6 +64,8 @@ export function Map({ initialGeoData }: Props) {
         setHeight(windowHeight);
         setWidth(windowHeight)
         console.log('[Map] Passing down width', width, ' and height', height)
+
+        getMonthData(setMonthlyData)
     }, [])
 
     const styles = `w-${width} h-${height} border-4 bg-gray-200 p-5`

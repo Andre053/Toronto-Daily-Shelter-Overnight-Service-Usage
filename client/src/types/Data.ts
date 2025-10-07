@@ -5,6 +5,40 @@ export type DataPoint = {
     date: Date;
 }
 
+export type StatByFsa = {
+  [key: string]: number;
+}
+
+export type DataByMonth = {
+  month: string;
+  data: DataCategory[];
+}
+export type DataCategory = {
+  LOCATION_FSA_CODE: string;
+  SERVICE_USER_COUNT_MEAN: number;
+  CAPACITY_ACTUAL_BED: number;
+  CAPACITY_FUNDING_BED: number;
+  OCCUPIED_BEDS_MEAN: number;
+  UNOCCUPIED_BEDS_MEAN: number;
+  OCCUPIED_ROOMS_MEAN: number;
+  UNOCCUPIED_ROOMS_MEAN: number;
+  PROGRAM_COUNT: number;
+  SHELTER_COUNT: number;
+  LOCATION_COUNT: number;
+  ORG_COUNT: number;
+}
+
+
+export type ChartOpts = {
+  [key: string]: ChartOption[];
+}
+
+export type ChartOption = {
+  displayName: string;
+  dataKey: string;
+  selectedStatus: boolean;
+}
+
 export type DataByFeaturePayload = {
   statName: string;
   startDate: string;
