@@ -2,7 +2,7 @@ import { useEffect, useInsertionEffect, useRef, useState } from "react";
 import { geoPath } from "d3";
 import { FeatureCollection } from "geojson";
 import '../app/globals.css';
-import { DataByMonth, GeoData, DataCategory, StatByFsa } from "@/types/Data";
+import { ServerData, GeoData, Stats, StatByFsa, MonthlyStatsFsa, AllStatsFsa, StatsKey } from "@/types/Data";
 import * as d3 from "d3";
 
 // takes geoJson data from backend, keeps track of whether map is generated with FSA or neighbourhood data
@@ -10,253 +10,163 @@ import * as d3 from "d3";
 // manages all key state variables
 // TODO: Layer both geomaps? Neighbourhood layer could be used to display the data for the user
 
-type Stats = {
-    meanMonthlyUsers: number;
-    meanMonthlyOccupiedBeds: number;
-    meanMonthlyUnoccupiedBeds: number;
-    meanMonthlyOccupiedRooms: number;
-    meanMonthlyUnoccupiedRooms: number;
-    meanMonthlyPrograms: number;
-    meanMonthlyShelters: number;
-    meanMonthlyOrgs: number;
-    meanMonthlyLocations: number;
-    maxMonthlyUsersFsa: string;
-    maxMonthlyUsersMonth: string;
-    maxMonthlyUsers: number;
-    minMonthlyUsers: number;
+type HeatmapData = {
+    statName: StatsKey;
+    statMax: number;
+    statMin: number
+    stats: StatByFsa;
 }
-
+async function getOverallStats(setOverallStats: any) {
+  await fetch('http://localhost:8080/data/all/all')
+        .then(res => res.json())
+        .then((resJson: ServerData) => {
+            const data: AllStatsFsa = resJson.data
+            setOverallStats(data.STATS)
+        })
+}
 const getColour = (colourStart: string, colourEnd: string, value: number, max: number, min: number) => {
     const colourScale = d3.scaleLinear([min, max], [colourStart, colourEnd])
     return colourScale(value)
 }
-
-const setPathColour = (statData: StatByFsa) => {
+const setPathColour = (data: HeatmapData) => {
     const g = d3.select('#map-group'); // should only be a single g tag
-
-    const values = Object.values(statData)
-    const max = Math.max(...values);
-    const min = Math.min(...values);
 
     g.selectAll('path') // go through all paths and change the colour
         .classed('stroke-black', true)
         .attr('fill', (d: any) => {
             const fsa: string = d.properties.CFSAUID;
-            const fsaData = statData[fsa];
-            if (fsaData) return getColour('yellow', 'red', fsaData, max, min);
+            const fsaData = data.stats[fsa];
+            if (fsaData) return getColour('#fdbb84', '#e34a33', fsaData, data.statMax, data.statMin);
             return 'gray';
         })
     g.style('visibility', 'visible') // make visible once recoloured
 }
-const computeMonthlyStats = (mapData: DataByMonth[]): Stats => {
-    const stats: Stats = {
-        'meanMonthlyUsers': 0,
-        'meanMonthlyOccupiedBeds': 0,
-        'meanMonthlyUnoccupiedBeds': 0,
-        'meanMonthlyOccupiedRooms': 0,
-        'meanMonthlyUnoccupiedRooms': 0,
-        'meanMonthlyPrograms': 0,
-        'meanMonthlyShelters': 0,
-        'meanMonthlyOrgs': 0,
-        'meanMonthlyLocations': 0,
-        'maxMonthlyUsersFsa': '',
-        'maxMonthlyUsersMonth': '',
-        'maxMonthlyUsers': 0,
-        'minMonthlyUsers': 1000000
+const getHeatmapData = (stat: StatsKey, mapData: AllStatsFsa[]): HeatmapData => {
+    const heatmapData: HeatmapData = {
+        statName: stat,
+        statMax: 0,
+        statMin: 10000,
+        stats: {}
     }
+    const statByFsa: StatByFsa = {}
     mapData.forEach(v => {
-        if (v) {
-            v.data.forEach(dv => {
-                stats.meanMonthlyUsers += dv.SERVICE_USER_COUNT_MEAN
-                stats.meanMonthlyOccupiedBeds += dv.OCCUPIED_BEDS_MEAN
-                stats.meanMonthlyUnoccupiedBeds += dv.UNOCCUPIED_BEDS_MEAN
-                stats.meanMonthlyOccupiedRooms += dv.OCCUPIED_ROOMS_MEAN
-                stats.meanMonthlyUnoccupiedRooms += dv.UNOCCUPIED_ROOMS_MEAN
-                stats.meanMonthlyPrograms += dv.PROGRAM_COUNT
-                stats.meanMonthlyShelters += dv.SHELTER_COUNT
-                stats.meanMonthlyOrgs += dv.ORG_COUNT
-                stats.meanMonthlyLocations += dv.LOCATION_COUNT
+            const curStat = v.STATS[stat]
+            statByFsa[v.FSA] = curStat; // TODO: Type error, fix
+            if (heatmapData.statMax < curStat) heatmapData.statMax = curStat;
+            if (heatmapData.statMin > curStat) heatmapData.statMin = curStat;
+        });
 
-                if (stats.maxMonthlyUsers < dv.SERVICE_USER_COUNT_MEAN) {
-                    stats.maxMonthlyUsers = dv.SERVICE_USER_COUNT_MEAN
-                    stats.maxMonthlyUsersFsa = dv.LOCATION_FSA_CODE
-                    stats.maxMonthlyUsersMonth = v.month
-                }
-                if (stats.minMonthlyUsers > dv.SERVICE_USER_COUNT_MEAN) stats.minMonthlyUsers = dv.SERVICE_USER_COUNT_MEAN
-            })
-        }
-    })
-    stats.meanMonthlyUsers = Math.round(stats.meanMonthlyUsers / mapData.length)
-    stats.meanMonthlyOccupiedBeds = Math.round(stats.meanMonthlyOccupiedBeds / mapData.length)
-    stats.meanMonthlyUnoccupiedBeds = Math.round(stats.meanMonthlyUnoccupiedBeds / mapData.length)
-    stats.meanMonthlyOccupiedRooms = Math.round(stats.meanMonthlyOccupiedRooms / mapData.length)
-    stats.meanMonthlyUnoccupiedRooms = Math.round(stats.meanMonthlyUnoccupiedRooms / mapData.length)
-    stats.meanMonthlyPrograms = Math.round(stats.meanMonthlyPrograms / mapData.length)
-    stats.meanMonthlyShelters = Math.round(stats.meanMonthlyShelters / mapData.length)
-    stats.meanMonthlyOrgs = Math.round(stats.meanMonthlyOrgs / mapData.length)
-    stats.meanMonthlyLocations = Math.round(stats.meanMonthlyLocations / mapData.length)
-
-    return stats
+    heatmapData.stats = statByFsa;
+    return heatmapData
 }
-
-const computeFsaStats = (mapData: DataByMonth[], fsa: string): Stats => {
-
-    const stats: Stats = {
-        'meanMonthlyUsers': 0,
-        'meanMonthlyOccupiedBeds': 0,
-        'meanMonthlyUnoccupiedBeds': 0,
-        'meanMonthlyOccupiedRooms': 0,
-        'meanMonthlyUnoccupiedRooms': 0,
-        'meanMonthlyPrograms': 0,
-        'meanMonthlyShelters': 0,
-        'meanMonthlyOrgs': 0,
-        'meanMonthlyLocations': 0,
-        'maxMonthlyUsersFsa': '',
-        'maxMonthlyUsersMonth': '',
-        'maxMonthlyUsers': 0,
-        'minMonthlyUsers': 100000
-    }
-    mapData.forEach(v => {
-        v.data.forEach(dv => {
-            if (dv.LOCATION_FSA_CODE === fsa) {
-                stats.meanMonthlyUsers += dv.SERVICE_USER_COUNT_MEAN
-                stats.meanMonthlyOccupiedBeds += dv.OCCUPIED_BEDS_MEAN
-                stats.meanMonthlyUnoccupiedBeds += dv.UNOCCUPIED_BEDS_MEAN
-                stats.meanMonthlyOccupiedRooms += dv.OCCUPIED_ROOMS_MEAN
-                stats.meanMonthlyUnoccupiedRooms += dv.UNOCCUPIED_ROOMS_MEAN
-                stats.meanMonthlyPrograms += dv.PROGRAM_COUNT
-                stats.meanMonthlyShelters += dv.SHELTER_COUNT
-                stats.meanMonthlyOrgs += dv.ORG_COUNT
-                stats.meanMonthlyLocations += dv.LOCATION_COUNT
-
-                if (stats.maxMonthlyUsers < dv.SERVICE_USER_COUNT_MEAN) {
-                    stats.maxMonthlyUsers = dv.SERVICE_USER_COUNT_MEAN
-                    stats.maxMonthlyUsersFsa = dv.LOCATION_FSA_CODE
-                    stats.maxMonthlyUsersMonth = v.month
-                }
-                if (stats.minMonthlyUsers > dv.SERVICE_USER_COUNT_MEAN) stats.minMonthlyUsers = dv.SERVICE_USER_COUNT_MEAN
-            }
-        })
-    })
-    stats.meanMonthlyUsers = Math.round(stats.meanMonthlyUsers / mapData.length)
-    stats.meanMonthlyOccupiedBeds = Math.round(stats.meanMonthlyOccupiedBeds / mapData.length)
-    stats.meanMonthlyUnoccupiedBeds = Math.round(stats.meanMonthlyUnoccupiedBeds / mapData.length)
-    stats.meanMonthlyOccupiedRooms = Math.round(stats.meanMonthlyOccupiedRooms / mapData.length)
-    stats.meanMonthlyUnoccupiedRooms = Math.round(stats.meanMonthlyUnoccupiedRooms / mapData.length)
-    stats.meanMonthlyPrograms = Math.round(stats.meanMonthlyPrograms / mapData.length)
-    stats.meanMonthlyShelters = Math.round(stats.meanMonthlyShelters / mapData.length)
-    stats.meanMonthlyOrgs = Math.round(stats.meanMonthlyOrgs / mapData.length)
-    stats.meanMonthlyLocations = Math.round(stats.meanMonthlyLocations / mapData.length)
-
-    return stats;
-}
-
-const getHeatmapData = async (stat: string, setHeatmapData: any) => {
-    await fetch(`http://localhost:8080/data/by_fsa/${stat}`)
-        .then((res) => res.json())
-        .then((data) => {
-            setHeatmapData(data.data)
-        })
-}
-
 type PropsSettings = {
     selectedArea: string | null;
-    mapData: DataByMonth[];
+    mapData: AllStatsFsa[];
 }
 
+/**
+ * 1. Show the map with the overall map data
+ * 2. Show basic stats for the time
+ * 3. Allow selecting a specific FSA, obtain specific stats for it
+ */
 export function MapSettings({selectedArea, mapData}: PropsSettings) {
-    const [selectedAreaData, setSelectedAreaData] = useState<any>(null);
-    const [selectedHeatmapOption, setSelectedHeatmapOption] = useState<string>('SERVICE_USER_COUNT')
-    const [heatmapData, setHeatmapData] = useState<StatByFsa | null>(null)
-    const [monthlyStats, setMonthlyStats] = useState<Stats | null>(null);
-    const [fsaStats, setFsaStats] = useState<Stats | null>(null);
+    const [selectedAreaData, setSelectedAreaData] = useState<AllStatsFsa | null>(null);
+    const [selectedHeatmapOption, setSelectedHeatmapOption] = useState<StatsKey>('MEAN_SERVICE_USERS')
+    const [heatmapData, setHeatmapData] = useState<HeatmapData | null>(null); 
+    const [overallStats, setOverallStats] = useState<Stats | null>(null);
+
+    const currentDate = new Date(); // TODO: Not using EST
+    const maxDate = new Date(currentDate.setDate(currentDate.getDate() - 1))
 
     const onChange = (e: any) => {
         setSelectedHeatmapOption(e.target.value)
-        getHeatmapData(e.target.value, setHeatmapData)
+        setHeatmapData(null)
+        console.log('Set selected heatmap option to', e.target.value)
     }
+
     useEffect(() => {
-        setMonthlyStats(computeMonthlyStats(mapData))
-    }, [mapData])
+        getOverallStats(setOverallStats);
+    }, [])
 
     useEffect(() => {
         // null on first call
-        setSelectedAreaData(null)
-
         if (!selectedArea) return;
-        setFsaStats(computeFsaStats(mapData, selectedArea))
-        
-        const url = `http://localhost:8080/data/fsa/${selectedArea}`
-
-        const getData: any = async () => {
-            await fetch(url)
-                .then((res) => res.json())
-                .then((servData) => {
-                    if (servData.message == 'Successful FSA data request') {
-                        setSelectedAreaData(servData.data)
-                    }
-                    else setSelectedAreaData({}) // TODO: This should handle bad requests
-                })
-        }
-        getData()
-    }, [selectedArea])
+        // mapData has all FSAs, simply select the FSA 
+        let set = false;
+        mapData.forEach(v => {
+            if (v.FSA == selectedArea) { 
+                setSelectedAreaData(v);
+                set = true;
+            };
+        });
+        if (!set) setSelectedAreaData(null);
+    }, [selectedArea]);
     
-    useEffect(() => {
-        if (heatmapData) {
-            setPathColour(heatmapData)
+    useEffect(() => { // should run on first time, colouring the map, then run on subsequent when changing
+        // heat map data is within the mapData
+        console.log('Checking heatmap with data', heatmapData)
+
+        if (!heatmapData) {
+            setHeatmapData(getHeatmapData(selectedHeatmapOption, mapData))
         } else {
-            getHeatmapData(selectedHeatmapOption, setHeatmapData)
+            setPathColour(heatmapData)
         }
-    }, [heatmapData])
+    }, [selectedHeatmapOption, heatmapData]);
     return (
         <>
             <h1 className="text-3xl">Info and options</h1>
-            <h1 className="text-2xl">Heatmap statistic</h1>
-            <select 
-                id="selected-info"
-                name="selectedInfo" 
-                className="p-1 border-black border-2"
-                onChange={onChange}
-            >
-                <option value="SERVICE_USER_COUNT">Service users</option>
-                <option value="OCCUPIED_BEDS">Occupied beds</option>
-                <option value="UNOCCUPIED_BEDS">Unoccupied beds</option>
-                <option value="OCCUPIED_ROOMS">Occupied rooms</option>
-                <option value="UNOCCUPIED_ROOMS">Unoccupied rooms</option>
-                <option value="ORGANIZATION_ID">Active organizations</option>
-                <option value="PROGRAM_ID">Active programs</option>
-                <option value="SHELTER_GROUP">Active shelters</option>
-            </select>
-            {monthlyStats && (
-                <>
-                    <h1 className="text-2xl p-2">Map statistics</h1>
-                    <ul className='list-disc text-left'>
-                        <li>There are {monthlyStats.meanMonthlyUsers} average monthly service users across the city</li>
-                        <li>Every month there are {monthlyStats.meanMonthlyShelters} active shelters, {monthlyStats.meanMonthlyOrgs} active organizations,<br/> and {monthlyStats.meanMonthlyPrograms} active programs on average</li>
-                        <li>Programs providing beds have {monthlyStats.meanMonthlyOccupiedBeds} occupied, {monthlyStats.meanMonthlyUnoccupiedBeds} unoccupied on average</li>
-                        <li>Programs providing rooms have {monthlyStats.meanMonthlyOccupiedRooms} occupied, {monthlyStats.meanMonthlyUnoccupiedRooms} unoccupied on average</li>
-                        <li>The most monthly service users for an FSA were {monthlyStats.maxMonthlyUsers} within {monthlyStats.maxMonthlyUsersFsa} in {monthlyStats.maxMonthlyUsersMonth}</li>
-                    </ul>
-                </>
-                
-            )}
-            <h1 className="text-xl p-2">{selectedArea ? `FSA selected: ${selectedArea}` : 'No FSA selected'}</h1>
-            <div className="">
-                {selectedArea ? ((selectedAreaData && fsaStats) ? (Object.keys(selectedAreaData).length !== 0) ? (
+            <div className="ml-5">
+                <h1 className="text-2xl py-2">Heatmap statistic</h1>
+                <select 
+                    id="selected-info"
+                    name="selectedInfo" 
+                    className="p-1 border-black border-2"
+                    onChange={onChange}
+                >
+                    <option value="MEAN_SERVICE_USERS">Service users</option>
+                    <option value="MEAN_OCCUPIED_BEDS">Occupied beds</option>
+                    <option value="MEAN_UNOCCUPIED_BEDS">Unoccupied beds</option>
+                    <option value="MEAN_OCCUPIED_ROOMS">Occupied rooms</option>
+                    <option value="MEAN_UNOCCUPIED_ROOMS">Unoccupied rooms</option>
+                    <option value="UNIQUE_ORG_COUNT">Active organizations</option>
+                    <option value="UNIQUE_PROGRAM_COUNT">Active programs</option>
+                    <option value="UNIQUE_LOCATION_COUNT">Active shelters</option>
+                </select>
+                <h1 className="text-2xl py-2">Date range</h1>
+                <input className="border" type="date" id="start-date" value="2021-01-01" min="2021-01-01" max={maxDate.toISOString().split('T')[0]}/>
+                <input className="border"type="date" id="end-date" value={maxDate.toISOString().split('T')[0]} min="2021-01-01" max={maxDate.toISOString().split('T')[0]}/>
+                {overallStats && (
                     <>
+                        <h1 className="text-2xl p-2">Map statistics</h1>
                         <ul className='list-disc text-left'>
-                            {fsaStats.meanMonthlyUsers !== 0 && <li>{fsaStats.meanMonthlyUsers} average service users per month</li>}
-                            {fsaStats.meanMonthlyOccupiedBeds !== 0 &&<li>{fsaStats.meanMonthlyOccupiedBeds} average occupied beds per month</li>}
-                            {fsaStats.meanMonthlyUnoccupiedBeds !== 0 &&<li>{fsaStats.meanMonthlyUnoccupiedBeds} average unoccupied beds per month</li>}
-                            {fsaStats.meanMonthlyOccupiedRooms !== 0 &&<li>{fsaStats.meanMonthlyOccupiedRooms} average occupied rooms per month</li>}
-                            {fsaStats.meanMonthlyUnoccupiedRooms !== 0 &&<li>{fsaStats.meanMonthlyUnoccupiedRooms} average unoccupied rooms per month</li>}
-                            {fsaStats.meanMonthlyPrograms !== 0 &&<li>{fsaStats.meanMonthlyPrograms} active programs</li>}
-                            {fsaStats.meanMonthlyOrgs !== 0 &&<li>{fsaStats.meanMonthlyOrgs} active organizations</li>}
-                            {fsaStats.meanMonthlyShelters !== 0 &&<li>{fsaStats.meanMonthlyShelters} active shelters</li>}
+                            <li>There are {overallStats.MEAN_SERVICE_USERS} average service users across the city each day</li>
+                            <li>Every day there are on average {overallStats.UNIQUE_SHELTER_COUNT} active shelters, {overallStats.UNIQUE_ORG_COUNT} active organizations,<br/> and {overallStats.UNIQUE_PROGRAM_COUNT} active programs on average</li>
+                            <li>Programs providing beds have {overallStats.MEAN_OCCUPIED_BEDS} occupied, {overallStats.MAX_UNOCCUPIED_BEDS} unoccupied on average</li>
+                            <li>Programs providing rooms have {overallStats.MAX_OCCUPIED_ROOMS} occupied, {overallStats.MAX_UNOCCUPIED_ROOMS} unoccupied on average</li>
+                            <li>The most service users supported in one day was {overallStats.MAX_SERVICE_USERS}</li>
                         </ul>
                     </>
-                ) : (<>No data found...</>) : (<>Loading...</>)) : <>No selected area</>} 
+                    
+                )}
+                <h1 className="text-xl p-2">{selectedArea ? `FSA selected: ${selectedArea}` : 'No FSA selected'}</h1>
+                <div className="">
+                    {selectedArea ? ((selectedAreaData) ? (Object.keys(selectedAreaData).length !== 0) ? (
+                        <>
+                            <ul className='list-disc text-left'>
+                                {selectedAreaData.STATS.MEAN_SERVICE_USERS !== 0 && <li>{selectedAreaData.STATS.MEAN_SERVICE_USERS} average service users per day</li>}
+                                {selectedAreaData.STATS.MEAN_OCCUPIED_BEDS !== 0 &&<li>{selectedAreaData.STATS.MEAN_OCCUPIED_BEDS} average occupied beds per day</li>}
+                                {selectedAreaData.STATS.MEAN_UNOCCUPIED_BEDS !== 0 &&<li>{selectedAreaData.STATS.MEAN_UNOCCUPIED_BEDS} average unoccupied beds per day</li>}
+                                {selectedAreaData.STATS.MEAN_OCCUPIED_ROOMS !== 0 &&<li>{selectedAreaData.STATS.MEAN_OCCUPIED_ROOMS} average occupied rooms per day</li>}
+                                {selectedAreaData.STATS.MEAN_UNOCCUPIED_ROOMS !== 0 &&<li>{selectedAreaData.STATS.MEAN_UNOCCUPIED_ROOMS} average unoccupied rooms per day</li>}
+                                {selectedAreaData.STATS.UNIQUE_PROGRAM_COUNT !== 0 &&<li>{selectedAreaData.STATS.UNIQUE_PROGRAM_COUNT} active programs</li>}
+                                {selectedAreaData.STATS.UNIQUE_ORG_COUNT !== 0 &&<li>{selectedAreaData.STATS.UNIQUE_ORG_COUNT} active organizations</li>}
+                                {selectedAreaData.STATS.UNIQUE_SHELTER_COUNT !== 0 &&<li>{selectedAreaData.STATS.UNIQUE_SHELTER_COUNT} active shelters</li>}
+                            </ul>
+                        </>
+                    ) : (<>No data found...</>) : (<>Loading...</>)) : <>No selected area</>} 
+                </div>
             </div>
+            
         </>
     )
 }
@@ -271,10 +181,11 @@ type PropsMap = {
 export function MapFsa({width, height, geoData, setSelectedArea}: PropsMap) {
     const featureCollection: FeatureCollection = geoData.featureCollection
     
+    const [selectedPath, setSelectedPath] = useState<any>(null); // TODO: Keep track of the selected FSA for colouring
     const [zoomTransform, setZoomTransform] = useState(null);
         
     const projection = d3.geoMercator()
-        .fitSize([width/1.75, height/2.25], featureCollection);
+        .fitSize([width/1.5, height/2], featureCollection);
 
     const geoGenerator = geoPath().projection(projection);
 
@@ -290,11 +201,11 @@ export function MapFsa({width, height, geoData, setSelectedArea}: PropsMap) {
         d3.selectAll('path')
             .transition()
             .duration(200)
-            .style('opacity', .5)
+            .style('opacity', .8)
         d3.select(e.target)
             .transition()
             .duration(200)
-            .style('opacity', 0.8)
+            .style('opacity', 1)
             .style('stroke', 'black')
         d3.select('#tooltip-div')
             .text(e.target.attributes[0].value)
@@ -303,7 +214,7 @@ export function MapFsa({width, height, geoData, setSelectedArea}: PropsMap) {
         d3.selectAll('path')
             .transition()
             .duration(200)
-            .style('opacity', .5)
+            .style('opacity', 1)
         d3.select(e.target)
             .transition()
             .duration(200)
@@ -316,14 +227,14 @@ export function MapFsa({width, height, geoData, setSelectedArea}: PropsMap) {
         // if opacity is 1, leave it 
         d3.select(e.target)
             .transition()
-            .duration(200)
-            .style('opacity', .5)
-            .attr('fill', 'green') // TODO: remove colour and ID, set to old colour
+            .duration(800)
+            .style('opacity', 1)
+            .style('stroke', 'green')
             .attr('id', 'fsa-selected') // sets to selected
     };
+    // does nothing
     const mouseOutPath = (e: any) => {
-        d3.select('path')
-            .style('opacity', 0.2)
+        d3.selectAll('path') 
             .style('stroke', 'black')
     };
     const mouseOverG = (e: any) => {

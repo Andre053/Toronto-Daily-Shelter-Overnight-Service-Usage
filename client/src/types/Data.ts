@@ -9,6 +9,63 @@ export type StatByFsa = {
   [key: string]: number;
 }
 
+export type MonthlyStatsFsa = {
+  YEAR: number;
+  MONTH: number;
+  FSA: string;
+  STATS: Stats;
+}
+
+export type MonthlyStats = {
+  YEAR: number;
+  MONTH: string;
+  STATS: Stats;
+}
+
+export type YearlyStats = {
+  YEAR: number;
+  STATS: Stats;
+}
+
+export type AllStatsDaily = {
+  STATS: Stats;
+}
+
+export type AllStatsFsa = {
+  FSA: string;
+  STATS: Stats;
+}
+
+export type Stats = {
+  MEAN_SERVICE_USERS: number;
+  MAX_SERVICE_USERS: number;
+  MIN_SERVICE_USERS: number;
+  MEAN_CAPACITY_ACTUAL_BED: number;
+  MAX_CAPACITY_ACTUAL_BED: number;
+  MIN_CAPACITY_ACTUAL_BED: number;
+  MEAN_CAPACITY_FUNDING_BED: number;
+  MAX_CAPACITY_FUNDING_BED: number;
+  MIN_CAPACITY_FUNDING_BED: number;
+  MEAN_OCCUPIED_BEDS: number;
+  MAX_OCCUPIED_BEDS: number;
+  MIN_OCCUPIED_BEDS: number;
+  MEAN_UNOCCUPIED_BEDS: number;
+  MAX_UNOCCUPIED_BEDS: number;
+  MIN_UNOCCUPIED_BEDS: number;
+  MEAN_OCCUPIED_ROOMS: number;
+  MAX_OCCUPIED_ROOMS: number;
+  MIN_OCCUPIED_ROOMS: number;
+  MEAN_UNOCCUPIED_ROOMS: number;
+  MAX_UNOCCUPIED_ROOMS: number;
+  MIN_UNOCCUPIED_ROOMS: number;
+  UNIQUE_ORG_COUNT: number;
+  UNIQUE_PROGRAM_COUNT: number;
+  UNIQUE_SHELTER_COUNT: number;
+  UNIQUE_LOCATION_COUNT: number;
+}
+
+export type StatsKey = keyof Stats;
+
 export type DataByMonth = {
   month: string;
   data: DataCategory[];

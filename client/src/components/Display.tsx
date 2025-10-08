@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useState } from "react";
-import { DataByMonth, ServerData, GeoData } from "@/types/Data";
+import { DataByMonth, ServerData, GeoData, MonthlyStatsFsa, AllStatsFsa } from "@/types/Data";
 import { MapFsa, MapSettings } from "./DisplayMap";
+import { Stats } from "fs";
 
 async function getGeoData(endpoint: string, setGeoData: any) {
     await fetch(`http://localhost:8080${endpoint}`)
@@ -15,34 +16,35 @@ async function getGeoData(endpoint: string, setGeoData: any) {
             console.log({resGeoData})
         })
 }
-async function getMonthlyData(setMonthlyData: any) {
-  await fetch('http://localhost:8080/data/by_month')
+async function getFsaStats(getFsaStats: any) {
+  await fetch('http://localhost:8080/data/fsa/all')
         .then(res => res.json())
         .then((resJson: ServerData) => {
-            const resMonthlyData: DataByMonth[] = resJson.data
-            setMonthlyData(resMonthlyData)
-            console.log({resMonthlyData})
+            const data: AllStatsFsa[] = resJson.data
+            getFsaStats(data)
         })
 }
 export function Display() {
-    const [dataByMonth, setDataByMonth] = useState<DataByMonth[] | null>(null);
+    const [fsaStats, setFsaStats] = useState<AllStatsFsa[] | null>(null);
     const [geoData, setGeoData] = useState<GeoData | null>(null);
     const [selectedArea, setSelectedArea] = useState<string | null>(null);
+    const [startDate, setStartDate] = useState<string | null>(null);
+    const [endDate, setEndDate] = useState<string | null>(null);
 
     // set data
     useEffect(() => {
-        if (geoData || dataByMonth) return;
+        if (geoData || fsaStats) return;
 
         getGeoData('/geodata/fsa', setGeoData)
-        getMonthlyData(setDataByMonth)
+        getFsaStats(setFsaStats)
 
-        console.log({geoData}, {dataByMonth})
+        console.log({fsaStats})
     })
 
     return (
         <>
             {geoData && 
-                <div className="text-center">
+                <div className="text-center align-top">
                     <MapFsa
                         width={1000}
                         height={800}
@@ -51,11 +53,11 @@ export function Display() {
                     />
                 </div>
             }
-            {dataByMonth && 
+            {fsaStats && 
                 <div className="text-left">
                     <MapSettings
                         selectedArea={selectedArea}
-                        mapData={dataByMonth}
+                        mapData={fsaStats}
                     />
                 </div>
             }
