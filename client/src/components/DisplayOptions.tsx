@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import '../app/globals.css';
 import { ServerData, Stats, StatByFsa, AllStatsFsa, StatsKey } from "@/types/Data";
 import * as d3 from "d3";
-import { setUrlDateParams } from "./Display";
+import { setUrlDateParams } from "./DisplayPage";
 
 type HeatmapData = {
     statName: StatsKey;
@@ -116,13 +116,13 @@ export function MapSettings({selectedArea, mapData, startDate, endDate, setStart
     }, [selectedHeatmapOption, heatmapData, mapData]);
     return (
         <>
-            <h1 className="text-3xl">Info and options</h1>
-            <div className="ml-5">
-                <h1 className="text-2xl py-2">Heatmap statistic</h1>
+            <div className="mx-5 border rounded-4xl text-center bg-blue-400 text-gray-800 p-3">
+                <h1 className="text-2xl py-2">Map Settings</h1>
+                <h1 className="text-1xl py-2">Heatmap statistic</h1>
                 <select 
                     id="selected-info"
                     name="selectedInfo" 
-                    className="p-1 border-black border-2"
+                    className="p-1 border-black border-2 text-center rounded-full"
                     onChange={onChange}
                 >
                     <option value="MEAN_SERVICE_USERS">Service users</option>
@@ -134,13 +134,15 @@ export function MapSettings({selectedArea, mapData, startDate, endDate, setStart
                     <option value="UNIQUE_PROGRAM_COUNT">Active programs</option>
                     <option value="UNIQUE_LOCATION_COUNT">Active shelters</option>
                 </select>
-                <h1 className="text-2xl py-2">Date range</h1>
+                <h1 className="text-1xl py-2">Date range</h1>
                 <input onInput={startOnInput} className="p-1 my-1 border rounded-full" type="date" id="start-date" defaultValue="2021-01-01" min="2021-01-01" max={maxDate}/><br/>
                 <input onInput={endOnInput} className="p-1 my-1 border rounded-full" type="date" id="end-date" defaultValue={maxDate} min="2021-01-01" max={maxDate}/>
+            </div>
+            <div className="border rounded-4xl text-center bg-blue-400 text-gray-800 p-3">
                 {overallStats && (
                     <>
-                        <h1 className="text-2xl p-2">Map statistics</h1>
-                        <ul className='list-disc text-left'>
+                        <h1 className="text-2xl p-2">Overall statistics</h1>
+                        <ul className='list-disc text-left ml-6'>
                             <li>There are {overallStats.MEAN_SERVICE_USERS} average service users across the city each day</li>
                             <li>Every day there are on average {overallStats.UNIQUE_SHELTER_COUNT} active shelters, {overallStats.UNIQUE_ORG_COUNT} active organizations,<br/> and {overallStats.UNIQUE_PROGRAM_COUNT} active programs on average</li>
                             <li>Programs providing beds have {overallStats.MEAN_OCCUPIED_BEDS} occupied, {overallStats.MAX_UNOCCUPIED_BEDS} unoccupied on average</li>
@@ -150,11 +152,13 @@ export function MapSettings({selectedArea, mapData, startDate, endDate, setStart
                     </>
                     
                 )}
-                <h1 className="text-xl p-2">{selectedArea ? `FSA selected: ${selectedArea}` : 'No FSA selected'}</h1>
+            </div>
+            <div className="mx-5 border rounded-4xl text-center bg-blue-400 text-gray-800 p-3">
+                <h1 className="text-xl p-2">FSA statistics</h1>
                 <div className="">
                     {selectedArea ? ((selectedAreaData) ? (Object.keys(selectedAreaData).length !== 0) ? (
                         <>
-                            <ul className='list-disc text-left'>
+                            <ul className='list-disc text-left ml-6'>
                                 {selectedAreaData.STATS.MEAN_SERVICE_USERS !== 0 && <li>{selectedAreaData.STATS.MEAN_SERVICE_USERS} average service users per day</li>}
                                 {selectedAreaData.STATS.MEAN_OCCUPIED_BEDS !== 0 &&<li>{selectedAreaData.STATS.MEAN_OCCUPIED_BEDS} average occupied beds per day</li>}
                                 {selectedAreaData.STATS.MEAN_UNOCCUPIED_BEDS !== 0 &&<li>{selectedAreaData.STATS.MEAN_UNOCCUPIED_BEDS} average unoccupied beds per day</li>}
@@ -165,7 +169,7 @@ export function MapSettings({selectedArea, mapData, startDate, endDate, setStart
                                 {selectedAreaData.STATS.UNIQUE_SHELTER_COUNT !== 0 &&<li>{selectedAreaData.STATS.UNIQUE_SHELTER_COUNT} active shelters</li>}
                             </ul>
                         </>
-                    ) : (<>No data found...</>) : (<>Loading...</>)) : <>No selected area</>} 
+                    ) : (<>No data found...</>) : (<>Loading...</>)) : <>Select an FSA on the map...</>} 
                 </div>
             </div>
             

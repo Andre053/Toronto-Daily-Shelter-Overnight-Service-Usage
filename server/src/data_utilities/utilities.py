@@ -101,6 +101,10 @@ def find_lat_lon(addrs):
         else: print(f"Did not find address {addy}")
 
 
+def test_imports():
+    import data_analysis as da
+    print(da.main())
+
 def main():
     # convert the shape file to a geojson file
     #shapefile_path = "../GeoData/fsa_boundary_cbf/lfsa000b21a_e.shp"
@@ -111,8 +115,10 @@ def main():
     #filter_geojson(geojson_path)
     #shrink_oda_date()
     #oda_data_df()
-    addrs = addresses()
-    find_lat_lon(addrs)
+    #addrs = addresses()
+    #find_lat_lon(addrs)
+
+    test_imports()
     print("Completed main")
 
 if __name__ == "__main__":

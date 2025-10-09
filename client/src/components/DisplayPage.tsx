@@ -70,18 +70,9 @@ export function Display() {
 
     return (
         <>
-            {geoData && 
-                <div className="text-center align-top">
-                    <MapFsa
-                        width={1000}
-                        height={800}
-                        geoData={geoData}
-                        setSelectedArea={setSelectedArea}
-                    />
-                </div>
-            }
+            <h1 className="text-4xl mb-3 text-center">Spatial Occupancy Statistics </h1>
             {fsaStats && 
-                <div className="text-left">
+                <div className="grid grid-cols-3 gap-2">
                     <MapSettings
                         selectedArea={selectedArea}
                         mapData={fsaStats}
@@ -89,6 +80,16 @@ export function Display() {
                         endDate={endDate}
                         setStartDate={setStartDate}
                         setEndDate={setEndDate}
+                    />
+                </div>
+            }
+            {geoData && 
+                <div className="text-center align-top">
+                    <MapFsa
+                        width={1000}
+                        height={800}
+                        geoData={geoData}
+                        setSelectedArea={setSelectedArea}
                     />
                 </div>
             }

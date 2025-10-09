@@ -27,7 +27,7 @@ export function MapFsa({width, height, geoData, setSelectedArea}: PropsMap) {
         .fitSize([width/1.5, height/2], featureCollection);
 
     const geoGenerator = geoPath().projection(projection);
-
+    
     const svgRef = useRef<SVGSVGElement | null>(null);
     const gRef = useRef<SVGGElement | null>(null);
 
@@ -84,7 +84,6 @@ export function MapFsa({width, height, geoData, setSelectedArea}: PropsMap) {
         d3.select('#tooltip-div')
             .style('top', (e.clientY-25)+'px') // get position on entire page
             .style('left', (e.clientX+10)+'px');
-            
     };
     const mouseOutG = (e: any) => {
         d3.select('#tooltip-div')
@@ -158,9 +157,9 @@ export function MapFsa({width, height, geoData, setSelectedArea}: PropsMap) {
     const styles = `relative justify-center z-1 grid col-span-1`
     return (
         <>
-            <h1 className="text-3xl">Toronto by FSA</h1>
+            <h1 className="text-2xl my-3 text-center">Toronto by Forward Sortation Addresses</h1>
             <div id='map-container' className={styles}>
-                <svg ref={svgRef} className="border m-2">
+                <svg ref={svgRef} className="border border-5 border-gray-500 rounded-3xl m-2">
                     <g ref={gRef} />
                 </svg>
             </div>

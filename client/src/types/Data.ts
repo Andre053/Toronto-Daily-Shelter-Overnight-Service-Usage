@@ -2,6 +2,7 @@ import { FeatureCollection } from "geojson";
 
 
 export type GraphData = {
+  stat: string,
   timespan: string,
   max: number,
   min: number,

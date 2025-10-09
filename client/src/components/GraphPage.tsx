@@ -20,8 +20,9 @@ export function GraphPage() {
 
     return (
         <> 
-            <LineChart data={data}/>
+            <h1 className="text-4xl my-3 text-center">Occupancy Statistics Over Time</h1>
             <GraphSettings graphData={data} setGraphData={setData}/>
+            <LineChart data={data}/>
         </>
     )
         
