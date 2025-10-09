@@ -259,48 +259,6 @@ async def get_geo_data(geotype: str, end: str = '2025-09-01', start: str = '2025
 async def data_by_fsa(neighbourhood: str):
     return {'message': 'No data available for neighbourhoods', 'data': {}}
 
-def daily_stats(df):
-    stats = {
-        'MEAN_SERVICE_USERS': 0,
-        'MEAN_OCCUPIED_BEDS': 0,
-        'MEAN_UNOCCUPIED_BEDS': 0,
-        'MEAN_OCCUPIED_ROOMS': 0,
-        'MEAN_UNOCCUPIED_ROOMS': 0,
-        'MEAN_PROGRAM_COUNT': 0,
-        'MEAN_SHELTER_COUNT': 0,
-        'MEAN_ORG_COUNT': 0,
-        'MEAN_LOCATION_COUNT': 0,
-        'MAX_SERVICE_USERS': 0,
-        'MAX_SERVICE_USERS_FSA': '',
-        'MAX_SERVICE_USERS_MONTH': '',
-        'MIN_SERVICE_USERS': 0,
-        'MIN_SERVICE_USERS_FSA': '',
-        'MIN_SERVICE_USERS_MONTH': ''
-    }
-
-    max_record = df.loc[df['SERVICE_USER_COUNT'] == df['SERVICE_USER_COUNT'].max()]
-    print(max_record.head())
-    stats['MAX_SERVICE_USERS'] = max_record['SERVICE_USER_COUNT']
-    stats['MAX_SERVICE_USERS_FSA'] = max_record['LOCATION_FSA_CODE']
-    stats['MAX_SERVICE_USERS_MONTH'] = max_record['OCCUPANCY_DATE']
-
-    min_record = df.loc[df['SERVICE_USER_COUNT'] == df['SERVICE_USER_COUNT'].min()]
-    print(min_record.head())
-    stats['MIN_SERVICE_USERS'] = min_record['SERVICE_USER_COUNT']
-    stats['MIN_SERVICE_USERS_FSA'] = min_record['LOCATION_FSA_CODE']
-    stats['MIN_SERVICE_USERS_MONTH'] = min_record['OCCUPANCY_DATE']
-
-    stats['MEAN_SERVICE_USERS'] = round(float(df['SERVICE_USER_COUNT'].mean()), 2)
-    stats['MEAN_OCCUPIED_BEDS'] = round(float(df['OCCUPIED_BEDS'].mean()), 2)
-    stats['MEAN_UNOCCUPIED_BEDS'] = round(float(df['UNOCCUPIED_BEDS'].mean()), 2)
-    stats['MEAN_OCCUPIED_ROOMS'] = round(float(df['OCCUPIED_ROOMS'].mean()), 2)
-    stats['MEAN_UNOCCUPIED_ROOMS'] = round(float(df['UNOCCUPIED_ROOMS'].mean()), 2)
-
-    stats['MEAN_PROGRAM_COUNT'] = round(float(df['PROGRAM_ID'].mean()), 2)
-    stats['MEAN_SHELTER_COUNT'] = round(float(df[''].mean()), 2)
-    stats['MEAN_ORG_COUNT'] = round(float(df[''].mean()), 2)
-    stats['MEAN_LOCATION_COUNT'] = round(float(df[''].mean()), 2)
-
 # make the data_xxx into a single function
 group_by_aggregate = {
     'SERVICE_USER_COUNT': ['mean', 'max', 'min'],
@@ -409,6 +367,88 @@ def data_monthly_fsa(df):
     return stats
 
 
+#'SERVICE_USER_COUNT', 'CAPACITY_ACTUAL_BED', 'CAPACITY_FUNDING_BED', 'OCCUPIED_BEDS', 'UNOCCUPIED_BEDS', 'OCCUPIED_ROOMS', 'UNOCCUPIED_ROOMS', 'ORGANIZATION_ID', 'PROGRAM_ID', 'SHELTER_ID', 'LOCATION_ID'
+def data_timeseries_yearly(df, stat):
+    df = df[
+        ['OCCUPANCY_DATE', stat]
+        ].groupby([
+                'OCCUPANCY_DATE',
+                df['OCCUPANCY_DATE'].dt.month.rename('MONTH'),
+                df['OCCUPANCY_DATE'].dt.year.rename('YEAR')
+            ]).agg({
+                stat: 'sum',
+            })
+    
+    df = df.groupby(['YEAR', 'MONTH']).agg({
+                stat: 'mean',
+            })
+    df = df.groupby(['YEAR']).agg({
+                stat: 'mean',
+            }).round(2)
+    df = df.fillna(0)
+    dataPoints = []
+    for idx, row in df.iterrows():
+        dataPoints.append({
+            'DATE': datetime(idx, 1, 1),
+            'STAT': int(row[stat])
+        })
+    return {
+        'timespan': 'yearly',
+        'max': int(df.max()[stat]),
+        'min': int(df.min()[stat]),
+        'dataPoints': dataPoints
+    }
+# get daily sum, then monthly average
+def data_timeseries_monthly(df, stat):
+    df = df[
+        ['OCCUPANCY_DATE', stat]
+        ].groupby([
+                'OCCUPANCY_DATE',
+                df['OCCUPANCY_DATE'].dt.month.rename('MONTH'),
+                df['OCCUPANCY_DATE'].dt.year.rename('YEAR')
+            ]).agg({
+                stat: 'sum',
+            })
+    
+    df = df.groupby(['YEAR', 'MONTH']).agg({
+                stat: 'mean',
+            }).round(2)
+    df = df.fillna(0)
+    dataPoints = []
+    for idx, row in df.iterrows():
+        dataPoints.append({
+            'DATE': datetime(idx[0], idx[1], 1),
+            'STAT': int(row[stat])
+        })
+    return {
+        'timespan': 'monthly',
+        'max': int(df.max()[stat]),
+        'min': int(df.min()[stat]),
+        'dataPoints': dataPoints
+    }
+
+def data_timeseries_daily(df, stat):
+    df = df[
+        ['OCCUPANCY_DATE', stat]
+        ].groupby([
+                'OCCUPANCY_DATE'
+            ]).agg({
+                stat: 'sum',
+            })
+    df = df.fillna(0)
+    dataPoints = []
+    for idx, row in df.iterrows():
+        dataPoints.append({
+            'DATE': idx,
+            'STAT': int(row[stat])
+        })
+    return {
+        'timespan': 'daily',
+        'max': int(df.max()[stat]),
+        'min': int(df.min()[stat]),
+        'dataPoints': dataPoints
+    }
+
 def data_all_single_fsa(df, fsa_code):
     df = df[df['LOCATION_FSA_CODE'] == fsa_code]
     grouped = df[
@@ -418,7 +458,6 @@ def data_all_single_fsa(df, fsa_code):
         ].groupby('LOCATION_FSA_CODE').agg(group_by_aggregate).reset_index()
     grouped = grouped.fillna(0)
     stats = []
-
     for idx, row in grouped.iterrows():
         stats.append({
             'FSA': row['LOCATION_FSA_CODE'][''],
@@ -801,6 +840,27 @@ def validate_date(date):
         print('Error with dates')
     return False
 
+# 'ORGANIZATION_ID', 'PROGRAM_ID', 'SHELTER_ID', 'LOCATION_ID'
+
+@app.get('/data/timeseries/{freq}/{stat}')
+async def get_data_timeseries(freq: str, stat: str, start: str = None, end: str = None):
+    if not validate_dates(start, end): return {'message': f'Invalid start date {start} or end date {end}', 'data': {}}
+    else:
+        if end: end = datetime.strptime(end, '%Y-%m-%d')
+        if start: start = datetime.strptime(start, '%Y-%m-%d')
+
+    df = get_data([], start, end)
+    data = None
+    if stat in ['SERVICE_USER_COUNT', 'CAPACITY_ACTUAL_BED', 'CAPACITY_FUNDING_BED', 'OCCUPIED_BEDS', 'UNOCCUPIED_BEDS', 'OCCUPIED_ROOMS', 'UNOCCUPIED_ROOMS']:
+        if freq == 'DAILY': data = data_timeseries_daily(df, stat)
+        elif freq == 'MONTHLY': data = data_timeseries_monthly(df, stat)
+        elif freq == 'YEARLY': data = data_timeseries_yearly(df, stat)
+
+    elif stat in ['ORGANIZATION_ID', 'PROGRAM_ID', 'SHELTER_ID', 'LOCATION_ID']: # do not average
+        print("This stat must be implemented differently")
+        return {}
+    
+    return {'Message': 'Request to date timeseries completed', 'data': data}
 @app.get('/data/all/{timespan}')
 async def get_data_by_month(timespan: str, start: str = None, end: str = None):
     if not validate_dates(start, end): return {'message': f'Invalid start date {start} or end date {end}', 'data': {}}

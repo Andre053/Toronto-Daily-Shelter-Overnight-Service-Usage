@@ -1,41 +1,42 @@
 import { FeatureCollection } from "geojson";
 
-export type DataPoint = {
-    value: number;
-    date: Date;
+
+export type GraphData = {
+  timespan: string,
+  max: number,
+  min: number,
+  dataPoints: DataPoint[]
 }
 
+export type DataPoint = {
+  STAT: number;
+  DATE: Date;
+}
 export type StatByFsa = {
   [key: string]: number;
 }
-
 export type MonthlyStatsFsa = {
   YEAR: number;
   MONTH: number;
   FSA: string;
   STATS: Stats;
 }
-
 export type MonthlyStats = {
   YEAR: number;
   MONTH: string;
   STATS: Stats;
 }
-
 export type YearlyStats = {
   YEAR: number;
   STATS: Stats;
 }
-
 export type AllStatsDaily = {
   STATS: Stats;
 }
-
 export type AllStatsFsa = {
   FSA: string;
   STATS: Stats;
 }
-
 export type Stats = {
   MEAN_SERVICE_USERS: number;
   MAX_SERVICE_USERS: number;
@@ -63,7 +64,6 @@ export type Stats = {
   UNIQUE_SHELTER_COUNT: number;
   UNIQUE_LOCATION_COUNT: number;
 }
-
 export type StatsKey = keyof Stats;
 
 export type DataByMonth = {
@@ -84,25 +84,12 @@ export type DataCategory = {
   LOCATION_COUNT: number;
   ORG_COUNT: number;
 }
-
-
-export type ChartOpts = {
-  [key: string]: ChartOption[];
-}
-
-export type ChartOption = {
-  displayName: string;
-  dataKey: string;
-  selectedStatus: boolean;
-}
-
 export type DataByFeaturePayload = {
   statName: string;
   startDate: string;
   endDate: string;
   dataByFeature: DataByFeature;
 }
-
 export type DataByFeature = {
   [key: string]: number[];
 }
@@ -135,12 +122,10 @@ type ServiceUserDailyStats = {
   service_user_sum: number;
   service_user_mean: number
 }
-
 export type FsaData = {
     fsa: fsaCounts[];
     stats: FsaStats;
 }
-
 export type fsaCounts = {
   key: string;
   val: number;
@@ -148,7 +133,6 @@ export type fsaCounts = {
 export type FsaStats = {
   max: number;
 }
-
 export type OccupancyData = {
   occupancyDate: string;
   organizationName: string;
