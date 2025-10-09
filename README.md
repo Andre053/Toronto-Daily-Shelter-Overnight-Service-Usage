@@ -6,9 +6,9 @@ This project aims to provide a full-stack application to better understand the n
 
 ## [IN PROGRESS] Features
 1. Heat map of Toronto by FSA, allows selecting a statistic to colour the map, displays overall map stats, can select a specific FSA to display related stats
-![Map of Toronto page coloured by average daily count of service users. Hovering over a clicked FSA with a tooltip showing the FSA name. To the right of the map are settings that show the time period and the selected statistic; below the settings are overall statistics and statistics for the selected FSA over the time period.](https://github.com/Andre053/Toronto-Daily-Shelter-Overnight-Service-Usage/blob/main/images/explore-page_2025-10-08?raw=true)
+![Map of Toronto page coloured by average daily count of service users. Hovering over a clicked FSA with a tooltip showing the FSA name. To the right of the map are settings that show the time period and the selected statistic; below the settings are overall statistics and statistics for the selected FSA over the time period.](https://github.com/Andre053/Toronto-Daily-Shelter-Overnight-Service-Usage/blob/main/images/explore-page_2025-10-08.png?raw=true)
 2. Page of charts user can customize options for, currently has a line chart to view the main features over time, allows for multiple time aggregations
-![Line graph showing service user count over time from 2021 to 2025. On the chart is a tooltip above the hovered over datapoint, with the datapoint highlighted by a small circle. To the left of the graph are settings showing the selected statistic, the frequency to aggregate the data, and the time period.](https://github.com/Andre053/Toronto-Daily-Shelter-Overnight-Service-Usage/blob/main/images/charts-page_2025-10-08?raw=true)
+![Line graph showing service user count over time from 2021 to 2025. On the chart is a tooltip above the hovered over datapoint, with the datapoint highlighted by a small circle. To the left of the graph are settings showing the selected statistic, the frequency to aggregate the data, and the time period.](https://github.com/Andre053/Toronto-Daily-Shelter-Overnight-Service-Usage/blob/main/images/charts-page_2025-10-08.png?raw=true)
 3. Data story built from my work on the project
 4. Explanation of the project and its background
 
@@ -17,6 +17,8 @@ This project aims to provide a full-stack application to better understand the n
 - [City's daily report on the data](https://www.toronto.ca/city-government/data-research-maps/research-reports/housing-and-homelessness-research-and-reports/shelter-census/)
 - [Housing Stablity Service System](https://www.toronto.ca/city-government/data-research-maps/research-reports/housing-and-homelessness-research-and-reports/housing-stability-service-system-map-and-terms/)
 - [Shelter System](https://www.toronto.ca/community-people/housing-shelter/homeless-help/about-torontos-shelter-system/)
+- [Open Database of Addresses](https://www.statcan.gc.ca/en/lode/databases/oda)
+- [Canadian Census FSA codes](https://www150.statcan.gc.ca/n1/en/catalogue/92-179-X)
 
 ## Limitations
 - The map has functionality to show Toronto by neighbourhood, but the data lacks any feature to link each record to the neighbourhood

@@ -245,9 +245,47 @@ async def root():
     }
     return payload
 
+
+def find_lat_lon(addresses):
+    df_addresses = pd.read_csv('../data/ODA_TORONTO.csv')
+    data = []
+    for addy in addresses:
+        if type(addy) != str: continue # ?? skip that
+        addy_parts = addy.split(' ')
+
+        addy = ' '.join(addy_parts[:-1]) # only need number and first part?
+        # TODO: misses addresses: 
+        #   2387 Dundas Street, which is in the spreadsheet but names Dundas St
+        #   3600 Steeles Ave
+        df_addy = df_addresses[df_addresses['full_addr'].str.contains(addy)] # could use better regex here
+        if not df_addy.empty:
+            lat = df_addy['latitude'].iloc[0]
+            lon = df_addy['longitude'].iloc[0]
+            print(f'Found address {addy} at {lat}, {lon}')
+            data.append({
+                'address': addy,
+                'lat': lat,
+                'lon': lon
+            })
+        else: print(f"Did not find address {addy}")
+    return data
+
+@app.get("/geodata/shelteraddresses")
+async def get_shelter_addresses(start: str = None, end: str = None):
+    if not validate_dates(start, end): return {'message': f'Invalid start date {start} or end date {end}', 'data': {}}
+    else:
+        if end: end = datetime.strptime(end, '%Y-%m-%d')
+        if start: start = datetime.strptime(start, '%Y-%m-%d')
+
+    print('Getting shelter addresses')
+    df = get_data([], start, end)
+    data = find_lat_lon(df['LOCATION_ADDRESS'].unique())
+
+    return {'message': 'Retrieved shelter locations', 'data': data}    
+
 @app.get("/geodata/{geotype}")
-async def get_geo_data(geotype: str, end: str = '2025-09-01', start: str = '2025-01-01'):
-    print(f'[get_geo_data] Received geotype {geotype}, end time {end}, start time {start}')
+async def get_geo_data(geotype: str): # no date filter needed for geo data
+
     geojson = get_geojson_data(geotype)
     payload = {
         'message': 'GeoJson data retrieved',
